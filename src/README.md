@@ -14,3 +14,20 @@ Not yet implemented/added:
 - cropping of irradiance raster to building outlines
 - table(?) output of final results
 - example code workflow using above scripts
+
+## Requirements
+- GDAL
+- GRASS GIS
+
+## Conda commands
+```bash
+# Export a minimal environment file to be able to set up a conda env on other machines.
+# Remove the prefix line from this manually as it will refer to an absolute path on local disk
+conda env export -n solar-estimates --no-builds --from-history > environment.yml
+
+# Recreate a conda env from file
+conda env create -f environment.yml
+
+# Activate a conda env
+conda activate solar-estimates
+```

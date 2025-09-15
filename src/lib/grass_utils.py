@@ -27,7 +27,7 @@ def setup_grass(gisbase: str,
     if not os.path.exists(location_path):
         import subprocess
         cmd = [
-            os.path.join(os.environ['GISBASE'], 'grass84.bat'),
+            'grass',
             '-c', 'EPSG:2193',
             location_path
         ]

@@ -1,3 +1,10 @@
 .conda
 grassdata/
 __pycache__/
+*.tif
+*.tfw
+*.vrt
+*.xml
+*.aux
+*.aux.aux.xml
+*.tif.aux.xml
