@@ -1,0 +1,33 @@
+# Solar Estimates source code
+
+A set of Python scripts that use libraries from GDAL and GRASS GIS to aid automation of estimating rooftop solar potential for regions.
+
+`grass_utils.py` - utility functions for dealing with GRASS, including environment management and setup.
+
+`dsm.py` - functions to handle tiled DSMs, loading the merged raster into GRASS, and calculating slope and aspect rasters.
+
+`solar_irradiance.py` - core functions that use r.sun to calculate solar irradiance for a given time period.
+
+Not yet implemented/added:
+- dynamic loading of DSM data from LINZ (see: https://github.com/linz/elevation/blob/master/docs/usage.md)
+- loading of building outlines shapefile
+- cropping of irradiance raster to building outlines
+- table(?) output of final results
+- example code workflow using above scripts
+
+## Requirements
+- GDAL
+- GRASS GIS
+
+## Conda commands
+```bash
+# Export a minimal environment file to be able to set up a conda env on other machines.
+# Remove the prefix line from this manually as it will refer to an absolute path on local disk
+conda env export -n solar-estimates --no-builds --from-history > environment.yml
+
+# Recreate a conda env from file
+conda env create -f environment.yml
+
+# Activate a conda env
+conda activate solar-estimates
+```
