@@ -1,6 +1,6 @@
 # README: Rooftop Solar Map for New Zealand
 
-Last Updated: 20 Aug 2025
+Last Updated: 21 Sep 2025
 
 ### About
 
@@ -38,14 +38,6 @@ For the technically interested, this is our planned approach:
 
 The project started in August 2025, we plan to have our first release in December 2025\.
 
-### Core Team
-
-* Jenny Sahng, Data Scientist, Rewiring Aotearoa  
-* Cameron Shorter, Geospatial Analyst and tech coordinator  
-* Shreyas Rama, Geospatial Data Science Masters, University of Canterbury
-
-The project is supported by Rewiring Aotearoa and the University of Canterbury.
-
 ### Contributing
 
 We are interested to hear from like-minded, tech savvy people tackling similar problems who are interested in collaborating with us.  
@@ -53,5 +45,29 @@ Refer to contact details below.
 
 ### Contact
 
-We communicate internally on slack.  
-If you’d like to get involved, you can reach out to Cameron Shorter, cameron DOT shorter AT gmail DOT com.
+We communicate and share content via:
+
+* Our public [solarmap-nz-tech](https://groups.google.com/g/solarmap-nz-tech) email list.
+* An internal slack chat channel.
+* A weekly meeting.
+* Our [solar-estimates](https://github.com/rewiring-nz/solar-estimates) github repository.
+* An internally shared Google Drive.
+
+If you’d like to get involved, you can request to join our [solarmap-nz-tech](https://groups.google.com/g/solarmap-nz-tech) email list, or reach out to our project coordinator (listed below).
+
+### Team
+
+#### Core Team
+* **Coordinator:** Cameron Shorter, Geospatial Analyst, cameron DOT shorter AT gmail DOT com
+* Jenny Sahng, Data Scientist, Rewiring Aotearoa  
+* Shreyas Rama, Geospatial Data Science Masters, University of Canterbury
+
+#### Contributors
+
+* Multiple (waiting on permission to list here)
+
+#### Organisations
+This project is supported by:
+* Rewiring Aotearoa
+* The University of Canterbury
+
