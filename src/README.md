@@ -8,12 +8,18 @@ A set of Python scripts that use libraries from GDAL and GRASS GIS to aid automa
 
 `solar_irradiance.py` - core functions that use r.sun to calculate solar irradiance for a given time period.
 
+`building_outlines.py` - functions to deal with loading building outline shapefiles and using it as a mask to clip rasters.
+
+`linke.py` - interpolation function for monthly Linke turbidity values which are used as part of the r.sun algorithm.
+
 Not yet implemented/added:
 - dynamic loading of DSM data from LINZ (see: https://github.com/linz/elevation/blob/master/docs/usage.md)
-- loading of building outlines shapefile
-- cropping of irradiance raster to building outlines
-- table(?) output of final results
-- example code workflow using above scripts
+- output of final results
+    - total solar generation for area taking into account:
+        - solar panel size/efficiency/capacity
+        - install location type e.g. rooftops, carparks, other land area
+- compiling GRASS to use GPU-enabled r.sun and creating instructions for it
+- investigating parallelisation of r.sun module call within Python
 
 ## Requirements
 - GDAL

@@ -1,3 +1,5 @@
+from .linke import linke_by_day
+
 def calculate_solar_irradiance(dsm: str,
                                grass_output: str,
                                aspect,
@@ -13,8 +15,9 @@ def calculate_solar_irradiance(dsm: str,
                         slope=slope,
                         day=day,
                         step=step,
-                        glob_rad=grass_output,
+                        linke_value=linke_by_day(day),
                         nprocs=16,
+                        glob_rad=grass_output,
                         overwrite=True)
     r_sun.run()
 
@@ -70,3 +73,5 @@ def calculate_solar_irradiance_range(dsm: str,
                                 name=rasters,
                                 flags='f') # force without prompt
         g_remove.run()
+
+    return f"{dsm}_solar_irradiance"
