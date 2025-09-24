@@ -23,11 +23,13 @@ import sys
 
 def _validate_day_arg(day_val):
     try:
-        d = float(day_val)
-    except Exception:
-        raise ValueError("day must be a number")
+        d = int(day_val)
+    except (ValueError, TypeError):
+        raise ValueError("day must be an integer")
+    
     if d < 1 or d > 365:
         raise ValueError("day must be within 1..365")
+    
     return d
 
 
@@ -40,6 +42,8 @@ def linke_by_day(day):
     ##### put monthly data here
     # e.g. northern hemisphere mountains:  (from the r.sun help page)
     #    [jan,feb,mar,...,dec]
+    # numbers taken from Worldwide Linke turbidity information: https://hal.science/hal-00465791
+    # Using Mount Gambier, Tasmania values as it's at -37.73 latitude
     linke_data = numpy.array ([2.9, 3.0, 2.8, 2.7, 3.0, 2.8, 2.5, 2.9, 3.3, 2.9, 3.1, 3.1])
 
     linke_data_wrap = numpy.concatenate((linke_data[9:12],
@@ -62,17 +66,16 @@ def linke_by_day(day):
     # return interpolated value
     return float(linke(d))
 
-
+# CLI usage
 if __name__ == "__main__":
-    # CLI: accept one argument and print value (preserve original behaviour)
     if len(sys.argv) != 2:
-        print("USAGE: g.linke_by_day [day number (1-365)]")
+        print("USAGE: linke.py [day number (1-365)]")
         sys.exit(1)
     try:
-        day = float(sys.argv[1])
-    except Exception:
-        print("USAGE: g.linke_by_day [day number (1-365)]")
+        val = linke_by_day(sys.argv[1])
+        print("%.4f" % val)
+    except (ValueError, TypeError) as e:
+        print(f"Error: {e}")
+        print("USAGE: linke.py [day number (1-365)]")
+
         sys.exit(1)
-    # call the function (let any ImportError or other exceptions surface)
-    val = linke_by_day(day)
-    print("%.4f" % val)
