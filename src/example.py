@@ -1,16 +1,25 @@
 # This is example code intended to demonstrate how to use the functions in the lib/ directory
 # to estimate solar irradiance for a provided digital surface model.
 
+from lib.building_outlines import (
+    calculate_outline_raster, 
+    export_final_raster, 
+    load_building_outlines,
+    remove_masks
+)
 from lib.dsm import calculate_slope_aspect_rasters, load_raster_into_grass, merge_rasters
 from lib.grass_utils import setup_grass
 from lib.solar_irradiance import calculate_solar_irradiance_range
 
 # DSM data is usually tiled and contains multiple GeoTIFFs. There is an example shotover-country.zip
 # file in the data/ directory that can be unzipped to provide example data.
-dsm_data_glob = "data/shotover-country/*.tif"
+dsm_data_glob = "data/shotover_country/*.tif"
+
+# Directory containing building outline shapefiles.
+building_outline_dir = "data/queenstown_lakes_building_outlines"
 
 # Used for descriptive filenames.
-area_name = "shotover-country"
+area_name = "shotover_country"
 
 # Set up GRASS to be scriptable via Python. Note that this path will vary based on OS and installation method. The
 # path below is for a MacOS installation using the .dmg installer.
@@ -18,6 +27,8 @@ area_name = "shotover-country"
 gscript, Module = setup_grass(gisbase="/Applications/GRASS-8.4.app/Contents/Resources")
 
 # Main workflow. Refer to the docstrings in the respective functions for more information.
+
+remove_masks(grass_module=Module)
 
 merged_raster, merged_raster_fname = merge_rasters(
     dsm_file_glob=dsm_data_glob,
@@ -33,12 +44,25 @@ aspect, slope = calculate_slope_aspect_rasters(
     dsm=merged_raster,
     grass_module=Module)
 
-calculate_solar_irradiance_range(
+solar_irradiance = calculate_solar_irradiance_range(
     dsm=merged_raster,
     aspect=aspect,
     slope=slope,
-    days=range(172, 174),
+    days=range(152, 154),
     step=1,
     grass_module=Module,
     cleanup=True
 )
+
+outlines = load_building_outlines(building_outline_dir, "queenstown_lakes_buildings", grass_module=Module)
+
+solar_on_buildings = calculate_outline_raster(
+    solar_irradiance_raster=solar_irradiance, 
+    building_vector=outlines,
+    output_name="solar_on_buildings", 
+    grass_module=Module
+)
+
+export_final_raster(raster_name=solar_on_buildings,
+                    output_tif=f"{area_name}_solar_irradiance_on_buildings.tif",
+                    grass_module=Module)
