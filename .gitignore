@@ -17,3 +17,7 @@ __pycache__/
 *.prj
 *.shp
 *.shx
+
+# Other data formats
+*.csv
+*.gpkg
