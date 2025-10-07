@@ -1,6 +1,5 @@
 from .linke import linke_by_day
 import numpy as np
-from scipy.interpolate import CubicSpline
 
 
 def calculate_solar_irradiance(
@@ -35,8 +34,9 @@ def calculate_solar_irradiance_range(
     export: bool = False,
     cleanup: bool = True,
 ):
-    """Calculate solar irradiance over a range of days, sum the rasters. Optionally cleans up
-    day rasters from GRASS' database."""
+    """Calculate solar irradiance over a range of days, and sum the rasters.
+    Optionally cleans up individual day rasters from GRASS' database with
+    cleanup=True, and exports the summed raster as a GeoTIFF with export=True."""
 
     # Loop through day range, keeping track of generated rasters
     day_rasters = []
@@ -86,6 +86,7 @@ def calculate_solar_irradiance_range(
 
     return f"{dsm}_solar_irradiance"
 
+
 def calculate_solar_irradiance_interpolated(
     dsm: str,
     aspect,
@@ -96,9 +97,12 @@ def calculate_solar_irradiance_interpolated(
     export: bool = False,
     cleanup: bool = True,
 ):
-    """Calculate annual solar irradiance by interpolating between key days (solstices/equinoxes)
-    using cubic spline interpolation for weights."""
-
+    """
+    Interpolate solar irradiance between key_days using linear interpolation.
+    Creates weighted sum directly. Optionally cleans up individual day rasters
+    from GRASS' database with cleanup=True, and exports the summed raster as
+    a GeoTIFF with export=True.
+    """
     # Calculate irradiance for each key day and store rasters
     day_rasters = []
     for day in key_days:
@@ -113,55 +117,78 @@ def calculate_solar_irradiance_interpolated(
         )
         day_rasters.append(day_map)
 
-    # Interpolate weights for each key day using cubic spline
-    days_of_year = np.arange(1, 366)
-    key_days_extended = key_days + [key_days[0] + 365]  # For periodicity
-    weights_matrix = []
+    # Use sorted key_days to determine interpolation range
+    key_days_sorted = sorted(key_days)
+    first, last = key_days_sorted[0], key_days_sorted[-1]
 
-    for i, kd in enumerate(key_days):
-        # Create a vector with 1 at the key day, 0 elsewhere, and repeat the first value at the end
-        y = np.zeros(len(key_days))
-        y[i] = 1
-        y_extended = np.append(y, y[0])  # Ensure periodicity
-        cs = CubicSpline(key_days_extended, y_extended, bc_type='periodic')
-        weights = cs(days_of_year)
-        weights_matrix.append(weights)
+    # Determine interpolation days (handles wrap-around)
+    if last < first:
+        interp_days = list(range(first, 366)) + list(range(1, last + 1))
+    else:
+        interp_days = list(range(first, last + 1))
 
-    # Sum weights for each key day across all days
-    total_weights = [float(np.sum(np.clip(w, 0, None))) for w in weights_matrix]
+    # Calculate total weight for each key day using simple linear interpolation
+    weights_per_key_day = np.zeros(len(key_days_sorted))
 
-    # Create weighted sum using r.mapcalc
+    for day in interp_days:
+        # Find which two key days this falls between
+        # Handle wrap-around
+        if last < first:
+            day_adj = day if day >= first else day + 365
+            key_days_adj = [kd if kd >= first else kd + 365 for kd in key_days_sorted]
+        else:
+            day_adj = day
+            key_days_adj = key_days_sorted
+
+        # Find surrounding key days
+        idx_after = next((i for i, kd in enumerate(key_days_adj) if kd >= day_adj), 0)
+        idx_before = (idx_after - 1) % len(key_days_sorted)
+
+        day_before = key_days_adj[idx_before]
+        day_after = key_days_adj[idx_after]
+
+        # Linear interpolation weight
+        if day_before == day_after:
+            # Exactly on a key day
+            weights_per_key_day[idx_before] += 1.0
+        else:
+            span = day_after - day_before
+            weight_after = (day_adj - day_before) / span
+            weight_before = 1.0 - weight_after
+
+            weights_per_key_day[idx_before] += weight_before
+            weights_per_key_day[idx_after] += weight_after
+
+    # Create a single weighted sum expression
+    output_name = f"{dsm}_solar_irradiance_interp"
+
     weighted_terms = [
-        f"({raster} * {weight})"
-        for raster, weight in zip(day_rasters, total_weights)
+        f"({raster} * {weight:.10f})"
+        for raster, weight in zip(day_rasters, weights_per_key_day)
     ]
-    expression = f"{dsm}_solar_irradiance_annual = " + " + ".join(weighted_terms)
 
-    r_mapcalc = grass_module(
-        "r.mapcalc",
-        expression=expression,
-        overwrite=True
-    )
+    expression = f"{output_name} = " + " + ".join(weighted_terms)
+
+    r_mapcalc = grass_module("r.mapcalc", expression=expression, overwrite=True)
     r_mapcalc.run()
 
-    # Export the annual raster as a GeoTIFF
+    # Export the raster as a GeoTIFF
     if export:
         r_out = grass_module(
             "r.out.gdal",
-            input=f"{dsm}_solar_irradiance_annual",
-            output=f"{dsm}_solar_irradiance_annual.tif",
+            input=output_name,
+            output=f"{output_name}.tif",
             format="GTiff",
             createopt="TFW=YES,COMPRESS=LZW",
             overwrite=True,
         )
         r_out.run()
 
-    # Clean up day rasters
+    # Clean up intermediate rasters
     if cleanup:
-        rasters = ",".join(day_rasters)
         g_remove = grass_module(
-            "g.remove", type="raster", name=rasters, flags="f"
+            "g.remove", type="raster", name=",".join(day_rasters), flags="f"
         )
         g_remove.run()
 
-    return f"{dsm}_solar_irradiance_annual"
+    return output_name
