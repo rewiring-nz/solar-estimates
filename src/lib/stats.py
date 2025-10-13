@@ -1,4 +1,4 @@
-def create_stats(building_outlines, rooftop_raster, output_csv, grass_module):
+def create_stats(area, building_outlines, rooftop_raster, output_csv, grass_module):
     """Calculate statistics of rooftop solar irradiance for building outlines."""
 
     v_rast_stats = grass_module(
@@ -11,27 +11,6 @@ def create_stats(building_outlines, rooftop_raster, output_csv, grass_module):
     )
     v_rast_stats.run()
 
-    v_db_update = grass_module(
-        "v.db.update",
-        map=building_outlines,
-        column="roof_sum",
-        value="roof_sum / 1000.0",
-        where="roof_sum IS NOT NULL",
-    )
-    v_db_update.run()
-
-    if output_csv:
-        v_db_select = grass_module(
-            "v.db.select",
-            map=building_outlines,
-            columns="building_i, suburb_loc, town_city, roof_sum",
-            where="roof_sum IS NOT NULL",
-            file=output_csv,
-            overwrite=True,
-        )
-
-        v_db_select.run()
-
     v_extract = grass_module(
         "v.extract",
         input=building_outlines,
@@ -41,11 +20,62 @@ def create_stats(building_outlines, rooftop_raster, output_csv, grass_module):
     )
     v_extract.run()
 
+    # Add several columns for Wh conversions and area
+    v_db_addcolumn = grass_module(
+        "v.db.addcolumn",
+        map="filtered_buildings",
+        columns=[
+            "roof_kwh DOUBLE PRECISION", 
+            "roof_mwh DOUBLE PRECISION",
+            "area_sqm DOUBLE PRECISION"
+        ],
+    )
+    v_db_addcolumn.run()
+
+    v_db_update_kwh = grass_module(
+        "v.db.update",
+        map="filtered_buildings",
+        column="roof_kwh",
+        query_column="CAST(roof_sum AS DOUBLE PRECISION) / 1000.0"
+    )
+    v_db_update_kwh.run()
+
+    v_db_update_mwh = grass_module(
+        "v.db.update",
+        map="filtered_buildings",
+        column="roof_mwh",
+        query_column="CAST(roof_sum AS DOUBLE PRECISION) / 1000000.0"
+    )
+    v_db_update_mwh.run()
+
+    v_db_update_area = grass_module(
+        "v.to.db",
+        map="filtered_buildings",
+        option="area",
+        columns="area_sqm",
+        units="meters",
+        overwrite=True
+    )
+    v_db_update_area.run()
+
+    if output_csv:
+        # roof_sum (Wh) and roof_kwh (kWh) are also available
+        v_db_select = grass_module(
+            "v.db.select",
+            map="filtered_buildings",
+            columns="building_i, suburb_loc, town_city, roof_mwh, area_sqm",
+            where="roof_sum IS NOT NULL",
+            file=f"{area}_building_stats.csv",
+            overwrite=True,
+        )
+
+        v_db_select.run()
+
     v_out_ogr = grass_module(
         "v.out.ogr",
         input="filtered_buildings",
-        output="building_stats.shp",
-        format="ESRI_Shapefile",
+        output=f"{area}_building_stats.gpkg",
+        format="GPKG",
         output_layer="building_stats",
         overwrite=True,
     )

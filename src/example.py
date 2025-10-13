@@ -3,6 +3,7 @@
 
 from lib.building_outlines import (
     calculate_outline_raster,
+    # export_final_raster,
     load_building_outlines,
     remove_masks,
 )
@@ -12,7 +13,7 @@ from lib.dsm import (
     merge_rasters,
 )
 from lib.grass_utils import setup_grass
-from lib.solar_irradiance import calculate_solar_irradiance_range
+from lib.solar_irradiance import calculate_solar_irradiance_interpolated
 from lib.stats import create_stats
 
 # DSM data is usually tiled and contains multiple GeoTIFFs. There is an example shotover-country.zip
@@ -43,11 +44,20 @@ virtual_raster = load_virtual_raster_into_grass(
 
 aspect, slope = calculate_slope_aspect_rasters(dsm=virtual_raster, grass_module=Module)
 
-solar_irradiance = calculate_solar_irradiance_range(
+# Annual using solstices and equinoxes as key days for interpolation
+days = [1, 79, 172, 266, 357, 365]
+
+# Winter only with winter solstice
+# days = [152, 172, 243]
+
+# Summer only with summer solstice
+# days = [335, 357, 59]
+
+solar_irradiance = calculate_solar_irradiance_interpolated(
     dsm=virtual_raster,
     aspect=aspect,
     slope=slope,
-    days=range(152, 154),
+    key_days=days,
     step=1,
     grass_module=Module,
     export=False,
@@ -69,13 +79,16 @@ solar_on_buildings = calculate_outline_raster(
 #
 # final_raster = export_final_raster(
 #     raster_name=solar_on_buildings,
+#     slope=slope,
+#     aspect=aspect,
 #     output_tif=f"{area_name}_solar_irradiance_on_buildings.tif",
 #     grass_module=Module,
 # )
 
 create_stats(
+    area=area_name,
     building_outlines=outlines,
     rooftop_raster=solar_on_buildings,
-    output_csv=False,
+    output_csv=True,
     grass_module=Module,
 )
