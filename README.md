@@ -40,20 +40,9 @@ The project started in August 2025, we plan to have our first release in Decembe
 
 ### Contributing
 
-We are interested to hear from like-minded, tech savvy people tackling similar problems who are interested in collaborating with us.  
-Refer to contact details below.
+We are interested to hear from like-minded, tech savvy people tackling similar problems who are interested in collaborating with us.
 
-### Contact
-
-We communicate and share content via:
-
-* Our public [solarmap-nz-tech](https://groups.google.com/g/solarmap-nz-tech) email list.
-* An internal slack chat channel.
-* A weekly meeting.
-* Our [solar-estimates](https://github.com/rewiring-nz/solar-estimates) github repository.
-* An internally shared Google Drive.
-
-If you’d like to get involved, you can request to join our [solarmap-nz-tech](https://groups.google.com/g/solarmap-nz-tech) email list, or reach out to our project coordinator (listed below).
+Refer to our [CONTRIBUTING.md](CONTRIBUTING.md) page for details.
 
 ### Team
 
