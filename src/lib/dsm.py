@@ -88,3 +88,21 @@ def calculate_slope_aspect_rasters(dsm: str, grass_module):
     r_slope_aspect.run()
 
     return f"{dsm}_aspect", f"{dsm}_slope"
+
+def filter_raster_by_slope(
+    input_raster: str,
+    slope_raster: str,
+    max_slope_degrees: float,
+    output_name: str,
+    grass_module,
+):
+    """Filter a raster to remove pixels where slope exceeds the max_slope_degrees."""
+    
+    r_mapcalc = grass_module(
+        "r.mapcalc",
+        expression=f"{output_name} = if({slope_raster} <= {max_slope_degrees}, {input_raster}, null())",
+        overwrite=True,
+    )
+    r_mapcalc.run()
+    
+    return output_name

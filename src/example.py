@@ -3,12 +3,13 @@
 
 from lib.building_outlines import (
     calculate_outline_raster,
-    # export_final_raster,
+    export_final_raster,
     load_building_outlines,
     remove_masks,
 )
 from lib.dsm import (
     calculate_slope_aspect_rasters,
+    filter_raster_by_slope,
     load_virtual_raster_into_grass,
     merge_rasters,
 )
@@ -75,10 +76,18 @@ solar_on_buildings = calculate_outline_raster(
     grass_module=Module,
 )
 
+solar_on_buildings_filtered = filter_raster_by_slope(
+    input_raster=solar_on_buildings,
+    slope_raster=slope,
+    max_slope_degrees=45,
+    output_name="solar_on_buildings_filtered",
+    grass_module=Module,
+)
+
 # This can be used to export a raster of solar irradiance on buildings if required
 #
 # final_raster = export_final_raster(
-#     raster_name=solar_on_buildings,
+#     raster_name=solar_on_buildings_filtered,
 #     slope=slope,
 #     aspect=aspect,
 #     output_tif=f"{area_name}_solar_irradiance_on_buildings.tif",
@@ -88,7 +97,7 @@ solar_on_buildings = calculate_outline_raster(
 create_stats(
     area=area_name,
     building_outlines=outlines,
-    rooftop_raster=solar_on_buildings,
+    rooftop_raster="solar_on_buildings_filtered",
     output_csv=True,
     grass_module=Module,
 )
