@@ -25,10 +25,10 @@ def create_stats(area, building_outlines, rooftop_raster, output_csv, grass_modu
         "v.db.addcolumn",
         map="filtered_buildings",
         columns=[
-            "roof_kwh DOUBLE PRECISION", 
+            "roof_kwh DOUBLE PRECISION",
             "roof_mwh DOUBLE PRECISION",
             "area_sqm DOUBLE PRECISION",
-            "usable_sqm INTEGER" 
+            "usable_sqm INTEGER",
         ],
     )
     v_db_addcolumn.run()
@@ -37,7 +37,7 @@ def create_stats(area, building_outlines, rooftop_raster, output_csv, grass_modu
         "v.db.update",
         map="filtered_buildings",
         column="roof_kwh",
-        query_column="CAST(roof_sum AS DOUBLE PRECISION) / 1000.0"
+        query_column="CAST(roof_sum AS DOUBLE PRECISION) / 1000.0",
     )
     v_db_update_kwh.run()
 
@@ -45,16 +45,16 @@ def create_stats(area, building_outlines, rooftop_raster, output_csv, grass_modu
         "v.db.update",
         map="filtered_buildings",
         column="roof_mwh",
-        query_column="CAST(roof_sum AS DOUBLE PRECISION) / 1000000.0"
+        query_column="CAST(roof_sum AS DOUBLE PRECISION) / 1000000.0",
     )
     v_db_update_mwh.run()
-    
+
     # Copy the pixel count from roof_number to usable_sqm
     v_db_update_pixels = grass_module(
         "v.db.update",
         map="filtered_buildings",
         column="usable_sqm",
-        query_column="roof_number"
+        query_column="roof_number",
     )
     v_db_update_pixels.run()
 
@@ -64,7 +64,7 @@ def create_stats(area, building_outlines, rooftop_raster, output_csv, grass_modu
         option="area",
         columns="area_sqm",
         units="meters",
-        overwrite=True
+        overwrite=True,
     )
     v_db_update_area.run()
 
