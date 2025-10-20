@@ -94,8 +94,7 @@ Example:
         "--time-step",
         type=float,
         default=1.0,
-        # TODO: clarify unit for time step
-        help="Time step in [hours? days?] for solar calculations (default: 1.0)",
+        help="Time step when computing all-day radiation sums in decimal hours. Default: 1.0",
     )
 
     parser.add_argument(

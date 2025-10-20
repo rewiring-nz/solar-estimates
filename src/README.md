@@ -96,7 +96,7 @@ conda env export -n solar-estimates --no-builds --from-history > environment.yml
 | `--output-prefix` | No | `solar_on_buildings` | Prefix for output files |
 | `--max-slope` | No | `45.0` | Maximum slope in degrees for filtering |
 | `--key-days` | No | `1 79 172 266 357 365` | Day numbers for solar irradiance interpolation |
-| `--time-step` | No | `1.0` | Time step in hours for calculations |
+| `--time-step` | No | `1.0` | Time step in decimal hours for calculations |
 | `--export-raster` | No | `False` | Export final raster as GeoTIFF |
 
 ### GRASS base paths by platform
