@@ -37,3 +37,15 @@ conda env create -f environment.yml
 # Activate a conda env
 conda activate solar-estimates
 ```
+
+## Linting & formatting
+
+We use [Ruff](https://github.com/astral-sh/ruff) with default configs.
+
+```bash
+# To lint:
+ruff check .
+
+# To format:
+ruff format .
+```
