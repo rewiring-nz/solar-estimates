@@ -7,21 +7,21 @@ import argparse
 import sys
 from pathlib import Path
 
-from lib.building_outlines import (
+from utils.building_outlines import (
     calculate_outline_raster,
     export_final_raster,
     load_building_outlines,
     remove_masks,
 )
-from lib.dsm import (
+from utils.dsm import (
     calculate_slope_aspect_rasters,
     filter_raster_by_slope,
     load_virtual_raster_into_grass,
     merge_rasters,
 )
-from lib.grass_utils import setup_grass
-from lib.solar_irradiance import calculate_solar_irradiance_interpolated
-from lib.stats import create_stats
+from utils.grass_utils import setup_grass
+from utils.solar_irradiance import calculate_solar_irradiance_interpolated
+from utils.stats import create_stats
 
 
 def parse_args():
