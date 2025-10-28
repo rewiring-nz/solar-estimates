@@ -30,28 +30,9 @@ Not yet implemented/added:
 
 ## Installation
 
-1. Download and install GRASS* following these instructions: https://cmbarton.github.io/grass-mac/download/#installation-tips
+1. Download and install GRASS following these instructions: https://cmbarton.github.io/grass-mac/download/#installation-tips
 1. Install Conda, a package manager for python which includes a distribution of OSGeo. The Miniconda version works for this project. https://www.anaconda.com/docs/getting-started/miniconda/install
 1. Use Conda to create an environment with dependencies installed:
-
-## Running the code
-
-Solar Estimates uses a `pyproject.toml` file to manage dependencies, which is supported by various dependency management
-solutions such as Poetry, pip, and uv.
-
-The following example uses `pip` and `venv`. Ensure you are in the `src/` directory before running the commands.
-
-```bash
-# Create a virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install .
-
-# Run the example
-python3 example.py
-```
 
 ### Notes for GRASS on Mac
 
@@ -63,23 +44,39 @@ To get around this, go to `Applications`, right click the GRASS app and click `O
 
 ## Usage
 
-```bash
-# Activate the conda env. Deactivate with `conda deactivate`
-conda activate solar-estimates
+Solar Estimates uses a `pyproject.toml` file to manage dependencies, which is supported by various dependency management
+solutions such as Poetry, pip, and uv.
 
-# See all available options
-cd src
-python pipeline.py --help
+The following example uses `pip` and `venv`. Ensure you are in the `src/` directory before running the commands.
+
+```bash
+# Create a virtual environment
+python3 -m venv .venv
+
+# Activate the env
+source .venv/bin/activate
+
+# Install dependencies
+pip install .
+
+# Run the example
+python3 example.py
+
+# Deactivate the env
+deactivate
 ```
 
 This repo includes some example data in the `data/` folder. You can use these to try out the pipeline.
 
 ```bash
 # Run the pipeline (example base usage)
-python pipeline.py
+python3 pipeline.py
+
+# See all available options
+python3 pipeline.py --help
 
 # Run the pipeline (including examples for all optional arguments)
-python pipeline.py \
+python3 pipeline.py \
   --dsm-glob "data/shotover_country/*.tif" \
   --building-dir "data/queenstown_lakes_building_outlines" \
   --area-name "shotover_country" \
@@ -90,10 +87,6 @@ python pipeline.py \
   --key-days 152 172 243 \
   --time-step 0.5 \
   --export-raster
-
-# Export a minimal environment file to be able to set up a conda env on other machines.
-# Remove the prefix line from environment.yml manually as it will refer to an absolute path on local disk
-conda env export -n solar-estimates --no-builds --from-history > environment.yml
 ```
 
 ### Command-line arguments
@@ -117,6 +110,18 @@ conda env export -n solar-estimates --no-builds --from-history > environment.yml
 - **Linux (apt)**: TBC
 - **Windows**: TBC
 
+### Linting & formatting
+
+We use [Ruff](https://github.com/astral-sh/ruff) with default configs.
+
+```bash
+# To lint:
+ruff check .
+
+# To format:
+ruff format .
+```
+
 ## Outputs
 
 The pipeline generates:
@@ -130,15 +135,3 @@ The pipeline generates:
 
 3. **GeoTIFF** (if `--export-raster` used):
    - `{area_name}_solar_irradiance_on_buildings.tif`
-
-## Linting & formatting
-
-We use [Ruff](https://github.com/astral-sh/ruff) with default configs.
-
-```bash
-# To lint:
-ruff check .
-
-# To format:
-ruff format .
-```
