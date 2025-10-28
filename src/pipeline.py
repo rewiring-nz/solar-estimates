@@ -126,9 +126,9 @@ def main():
     print("Removing existing masks...")
     remove_masks(grass_module=Module)
 
-    print(f"Merging rasters from: {args.dsm_pattern}")
+    print(f"Merging rasters from: {args.dsm_glob}")
     merged_virtual_raster = merge_rasters(
-        dsm_file_glob=args.dsm_pattern, area_name=args.area_name
+        dsm_file_glob=args.dsm_glob, area_name=args.area_name
     )
 
     print("Loading virtual raster into GRASS...")

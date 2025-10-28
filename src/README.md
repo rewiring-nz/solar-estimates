@@ -28,25 +28,13 @@ Not yet implemented/added:
 
 ## Installation
 
-First, download and install GRASS following these instructions: https://cmbarton.github.io/grass-mac/download/#installation-tips
-
-Then, use Conda to create an environment with dependencies installed.
+1. Download and install GRASS following these instructions: https://cmbarton.github.io/grass-mac/download/#installation-tips
+1. Install Conda, a package manager for python which includes a distribution of OSGeo. The Miniconda version works for this project. https://www.anaconda.com/docs/getting-started/miniconda/install
+1. Use Conda to create an environment with dependencies installed:
 
 ```bash
 # Recreate a conda env from file (make sure you're in this src/ dir)
 conda env create -f environment.yml
-```
-
-## Linting & formatting
-
-We use [Ruff](https://github.com/astral-sh/ruff) with default configs.
-
-```bash
-# To lint:
-ruff check .
-
-# To format:
-ruff format .
 ```
 
 ## Usage
@@ -56,6 +44,7 @@ ruff format .
 conda activate solar-estimates
 
 # See all available options
+cd src
 python pipeline.py --help
 
 # Run the pipeline (example base usage)
@@ -122,3 +111,15 @@ The pipeline generates:
 ## Example data
 
 The repository includes example data in `data/shotover_country.zip` and `data/queenstown-lakes-building-outlines.zip`. You don't have to unzip these for it to work (TODO: confirm this).
+
+## Linting & formatting
+
+We use [Ruff](https://github.com/astral-sh/ruff) with default configs.
+
+```bash
+# To lint:
+ruff check .
+
+# To format:
+ruff format .
+```
