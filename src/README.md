@@ -22,6 +22,7 @@ Not yet implemented/added:
 - investigating parallelisation of r.sun module call within Python
 
 ## Requirements
+- Python 3.x
 - GDAL
 - GRASS GIS
 - Conda - we recommend [installing Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/install#quickstart-install-instructions)
@@ -37,7 +38,20 @@ Not yet implemented/added:
 conda env create -f environment.yml
 ```
 
-### Nots for GRASS on Mac
+Before getting started, you'll also want to unzip the example data included in this repository: `data/shotover_country.zip` and `data/queenstown_lakes_building_outlines.zip`. Unzip these inside the `data/` folder, so tha it looks like this:
+
+```
+- src/
+  - data/
+    - shotover_country/
+      - DSM_CC11_2021_1000_0329.aux
+      - etc.
+    - queenstown_lakes_building_outlines/
+      - nz-building-outlines.cpg
+      - etc.
+```
+
+### Notes for GRASS on Mac
 
 *This has been tested for GRASS 8.4.1. Apple ARM on MacOS Sequoia 15.7.1.*
 
@@ -115,10 +129,6 @@ The pipeline generates:
 
 3. **GeoTIFF** (if `--export-raster` used):
    - `{area_name}_solar_irradiance_on_buildings.tif`
-
-## Example data
-
-The repository includes example data in `data/shotover_country.zip` and `data/queenstown_lakes_building_outlines.zip`. You don't have to unzip these for it to work (TODO: confirm this).
 
 ## Linting & formatting
 
