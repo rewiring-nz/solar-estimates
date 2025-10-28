@@ -44,8 +44,11 @@ virtual_raster = load_virtual_raster_into_grass(
 
 aspect, slope = calculate_slope_aspect_rasters(dsm=virtual_raster, grass_module=Module)
 
+# Simple one-week calculation
+days = [1, 7]
+
 # Annual using solstices and equinoxes as key days for interpolation
-days = [1, 79, 172, 266, 357, 365]
+# days = [1, 79, 172, 266, 357, 365]
 
 # Winter only with winter solstice
 # days = [152, 172, 243]

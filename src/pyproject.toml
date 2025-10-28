@@ -1,0 +1,10 @@
+[project]
+name = "solar-estimates"
+version = "0.1.0"
+description = "Estimating solar potential for New Zealand"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "gdal>=3.11.4",
+    "scipy>=1.16.2",
+]

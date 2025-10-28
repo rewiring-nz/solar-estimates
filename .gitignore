@@ -35,3 +35,6 @@ __pycache__/
 # Other data formats
 *.csv
 *.gpkg
+
+# Dependecy manager agnostic
+*.lock

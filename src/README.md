@@ -12,6 +12,8 @@ A set of Python scripts that use libraries from GDAL and GRASS GIS to aid automa
 
 `linke.py` - interpolation function for monthly Linke turbidity values which are used as part of the r.sun algorithm.
 
+`stats.py` - creates a GeoPackage and optional CSV file of solar irradiance statistics for each building polygon.
+
 Not yet implemented/added:
 - dynamic loading of DSM data from LINZ (see: https://github.com/linz/elevation/blob/master/docs/usage.md)
 - output of final results
@@ -25,7 +27,6 @@ Not yet implemented/added:
 - Python 3.x
 - GDAL
 - GRASS GIS
-- Conda - we recommend [installing Miniconda](https://www.anaconda.com/docs/getting-started/miniconda/install#quickstart-install-instructions)
 
 ## Installation
 
@@ -33,9 +34,23 @@ Not yet implemented/added:
 1. Install Conda, a package manager for python which includes a distribution of OSGeo. The Miniconda version works for this project. https://www.anaconda.com/docs/getting-started/miniconda/install
 1. Use Conda to create an environment with dependencies installed:
 
+## Running the code
+
+Solar Estimates uses a `pyproject.toml` file to manage dependencies, which is supported by various dependency management
+solutions such as Poetry, pip, and uv.
+
+The following example uses `pip` and `venv`. Ensure you are in the `src/` directory before running the commands.
+
 ```bash
-# Recreate a conda env from file (make sure you're in this src/ dir)
-conda env create -f environment.yml
+# Create a virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install .
+
+# Run the example
+python3 example.py
 ```
 
 ### Notes for GRASS on Mac
