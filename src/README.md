@@ -64,7 +64,7 @@ python pipeline.py \
   --building-dir "data/queenstown-lakes-building-outlines" \
   --area-name "shotover_country" \
   --building-layer "queenstown_lakes_buildings" \
-  --grass-base "/Applications/GRASS-8.4.app/Contents/Resources" \
+  --grass-base "/Applications/GRASS-8.4.app/Contents/Resources"
 
 # Run the pipeline (including examples for all optional arguments)
 python pipeline.py \
