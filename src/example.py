@@ -1,21 +1,21 @@
 # This is example code intended to demonstrate how to use the functions in the lib/ directory
 # to estimate solar irradiance for a provided digital surface model.
 
-from lib.building_outlines import (
+from utils.building_outlines import (
     calculate_outline_raster,
     export_final_raster,
     load_building_outlines,
     remove_masks,
 )
-from lib.dsm import (
+from utils.dsm import (
     calculate_slope_aspect_rasters,
     filter_raster_by_slope,
     load_virtual_raster_into_grass,
     merge_rasters,
 )
-from lib.grass_utils import setup_grass
-from lib.solar_irradiance import calculate_solar_irradiance_interpolated
-from lib.stats import create_stats
+from utils.grass_utils import setup_grass
+from utils.solar_irradiance import calculate_solar_irradiance_interpolated
+from utils.stats import create_stats
 
 # DSM data is usually tiled and contains multiple GeoTIFFs. There is example data in the data/ directory.
 dsm_data_glob = "data/shotover_country/*.tif"
@@ -44,8 +44,11 @@ virtual_raster = load_virtual_raster_into_grass(
 
 aspect, slope = calculate_slope_aspect_rasters(dsm=virtual_raster, grass_module=Module)
 
+# Simple one-week calculation
+days = [1, 7]
+
 # Annual using solstices and equinoxes as key days for interpolation
-days = [1, 79, 172, 266, 357, 365]
+# days = [1, 79, 172, 266, 357, 365]
 
 # Winter only with winter solstice
 # days = [152, 172, 243]
