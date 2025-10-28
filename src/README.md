@@ -50,17 +50,17 @@ python pipeline.py --help
 # Run the pipeline (example base usage)
 python pipeline.py \
   --dsm-glob "data/shotover_country/*.tif" \
-  --building-dir "data/queenstown-lakes-building-outlines" \
+  --building-dir "data/queenstown_lakes_building_outlines" \
   --area-name "shotover_country" \
-  --building-layer "queenstown_lakes_buildings" \
+  --building-layer-name "queenstown_lakes_buildings" \
   --grass-base "/Applications/GRASS-8.4.app/Contents/Resources"
 
 # Run the pipeline (including examples for all optional arguments)
 python pipeline.py \
   --dsm-glob "data/shotover_country/*.tif" \
-  --building-dir "data/queenstown-lakes-building-outlines" \
+  --building-dir "data/queenstown_lakes_building_outlines" \
   --area-name "shotover_country" \
-  --building-layer "queenstown_lakes_buildings" \
+  --building-layer-name "queenstown_lakes_buildings" \
   --grass-base "/Applications/GRASS-8.4.app/Contents/Resources" \
   --output-prefix "my_solar_analysis" \
   --max-slope 30.0 \
@@ -80,7 +80,7 @@ conda env export -n solar-estimates --no-builds --from-history > environment.yml
 | `--dsm-glob` | Yes | - | Glob glob for DSM GeoTIFF files |
 | `--building-dir` | Yes | - | Directory containing building outline shapefiles |
 | `--area-name` | Yes | - | Descriptive name for the area (used in filenames) |
-| `--building-layer` | Yes | - | Name of the building outline layer |
+| `--building-layer-name` | Yes | - | Name of the building outline layer |
 | `--grass-base` | Yes | - | Path to GRASS GIS installation |
 | `--output-prefix` | No | `solar_on_buildings` | Prefix for output files |
 | `--max-slope` | No | `45.0` | Maximum slope in degrees for filtering |
@@ -110,7 +110,7 @@ The pipeline generates:
 
 ## Example data
 
-The repository includes example data in `data/shotover_country.zip` and `data/queenstown-lakes-building-outlines.zip`. You don't have to unzip these for it to work (TODO: confirm this).
+The repository includes example data in `data/shotover_country.zip` and `data/queenstown_lakes_building_outlines.zip`. You don't have to unzip these for it to work (TODO: confirm this).
 
 ## Linting & formatting
 

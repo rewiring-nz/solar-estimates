@@ -34,7 +34,7 @@ Example:
     --dsm-glob "data/shotover_country/*.tif" \\
     --building-dir "data/queenstown-lakes-building-outlines" \\
     --area-name "shotover_country" \\
-    --building-outline-name "queenstown_lakes_buildings" \\
+    --building-layer-name "queenstown_lakes_buildings" \\
     --grass-base "/Applications/GRASS-8.4.app/Contents/Resources"
         """,
     )
@@ -60,7 +60,7 @@ Example:
     parser.add_argument(
         "--building-layer-name",
         required=True,
-        help='Name of the building outline layer (example: "queenstown_lakes_buildings_outlines")',
+        help='Name of the building outline layer (example: "queenstown_lakes_buildings")',
     )
 
     parser.add_argument(
@@ -157,7 +157,7 @@ def main():
 
     print("Loading building outlines...")
     outlines = load_building_outlines(
-        args.building_dir, args.building_layer, grass_module=Module
+        args.building_dir, args.building_layer_name, grass_module=Module
     )
 
     print("Calculating solar irradiance on buildings...")
