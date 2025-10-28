@@ -19,6 +19,7 @@ __pycache__/
 *.shx
 
 # Exclude data directory
+!src/data/**/*.tif
 !src/data/**/*.tfw
 !src/data/**/*.vrt
 !src/data/**/*.xml
