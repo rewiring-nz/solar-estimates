@@ -17,8 +17,7 @@ from lib.grass_utils import setup_grass
 from lib.solar_irradiance import calculate_solar_irradiance_interpolated
 from lib.stats import create_stats
 
-# DSM data is usually tiled and contains multiple GeoTIFFs. There is an example shotover-country.zip
-# file in the data/ directory that can be unzipped to provide example data.
+# DSM data is usually tiled and contains multiple GeoTIFFs. There is example data in the data/ directory.
 dsm_data_glob = "data/shotover_country/*.tif"
 
 # Directory containing building outline shapefiles.
