@@ -38,19 +38,6 @@ Not yet implemented/added:
 conda env create -f environment.yml
 ```
 
-Before getting started, you'll also want to unzip the example data included in this repository: `data/shotover_country.zip` and `data/queenstown_lakes_building_outlines.zip`. Unzip these inside the `data/` folder, so tha it looks like this:
-
-```
-- src/
-  - data/
-    - shotover_country/
-      - DSM_CC11_2021_1000_0329.aux
-      - etc.
-    - queenstown_lakes_building_outlines/
-      - nz-building-outlines.cpg
-      - etc.
-```
-
 ### Notes for GRASS on Mac
 
 *This has been tested for GRASS 8.4.1. Apple ARM on MacOS Sequoia 15.7.1.*
@@ -68,7 +55,11 @@ conda activate solar-estimates
 # See all available options
 cd src
 python pipeline.py --help
+```
 
+This repo includes some example data in the `data/` folder. You can use these to try out the pipeline.
+
+```bash
 # Run the pipeline (example base usage)
 python pipeline.py \
   --dsm-glob "data/shotover_country/*.tif" \
