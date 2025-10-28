@@ -23,18 +23,13 @@ Not yet implemented/added:
 - compiling GRASS to use GPU-enabled r.sun and creating instructions for it
 - investigating parallelisation of r.sun module call within Python
 
-## Requirements
-- Python 3.x
-- GDAL
-- GRASS GIS
-
 ## Installation
 
-1. Download and install GRASS following these instructions: https://cmbarton.github.io/grass-mac/download/#installation-tips
-1. Install Conda, a package manager for python which includes a distribution of OSGeo. The Miniconda version works for this project. https://www.anaconda.com/docs/getting-started/miniconda/install
-1. Use Conda to create an environment with dependencies installed:
+### GRASS
 
-### Notes for GRASS on Mac
+Download and install GRASS following these instructions: https://cmbarton.github.io/grass-mac/download/#installation-tips
+
+#### Notes for GRASS on Mac
 
 *This has been tested for GRASS 8.4.1. Apple ARM on MacOS Sequoia 15.7.1.*
 
@@ -42,7 +37,7 @@ When trying to open the GRASS app, you may get the warning `GRASS is Damaged and
 
 To get around this, go to `Applications`, right click the GRASS app and click `Open`. It will block it, so cancel. Then go to your Mac's `System Settings` > `Privacy & Security` > scroll down to the `Security` section at the bottom. Assuming GRASS was the last app you tried to open, there should be a message about GRASS being blocked, with an `Open Anyway` button next to it. Click this, and it will allow your Mac to open GRASS from now on. See [this screenshot](https://support.apple.com/en-nz/102445#openanyway) for an example.
 
-## Usage
+### Python packages
 
 Solar Estimates uses a `pyproject.toml` file to manage dependencies, which is supported by various dependency management
 solutions such as Poetry, pip, and uv.
@@ -58,18 +53,17 @@ source .venv/bin/activate
 
 # Install dependencies
 pip install .
-
-# Run the example
-python3 example.py
-
-# Deactivate the env
-deactivate
 ```
+
+## Usage
 
 This repo includes some example data in the `data/` folder. You can use these to try out the pipeline.
 
 ```bash
-# Run the pipeline (example base usage)
+# Run the example
+python3 example.py
+
+# Run the pipeline (same as example, base usage)
 python3 pipeline.py
 
 # See all available options
@@ -87,6 +81,9 @@ python3 pipeline.py \
   --key-days 152 172 243 \
   --time-step 0.5 \
   --export-raster
+
+# Deactivate the env once you're done
+deactivate
 ```
 
 ### Command-line arguments
