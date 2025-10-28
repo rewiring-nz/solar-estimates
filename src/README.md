@@ -28,7 +28,7 @@ Not yet implemented/added:
 
 ## Installation
 
-1. Download and install GRASS following these instructions: https://cmbarton.github.io/grass-mac/download/#installation-tips
+1. Download and install GRASS* following these instructions: https://cmbarton.github.io/grass-mac/download/#installation-tips
 1. Install Conda, a package manager for python which includes a distribution of OSGeo. The Miniconda version works for this project. https://www.anaconda.com/docs/getting-started/miniconda/install
 1. Use Conda to create an environment with dependencies installed:
 
@@ -36,6 +36,14 @@ Not yet implemented/added:
 # Recreate a conda env from file (make sure you're in this src/ dir)
 conda env create -f environment.yml
 ```
+
+### Nots for GRASS on Mac
+
+*This has been tested for GRASS 8.4.1. Apple ARM on MacOS Sequoia 15.7.1.*
+
+When trying to open the GRASS app, you may get the warning `GRASS is Damaged and Can’t Be Opened. You Should Move It To The Trash.`. Although [the documentation says](https://cmbarton.github.io/grass-mac/download/#important-apple-security-block-and-workaround-for-grass-versions-downloaded-in-2024-and-prior-to-9-january-2025) that this should be resolved as of 9 Jan 2025, this may still be the case for you.
+
+To get around this, go to `Applications`, right click the GRASS app and click `Open`. It will block it, so cancel. Then go to your Mac's `System Settings` > `Privacy & Security` > scroll down to the `Security` section at the bottom. Assuming GRASS was the last app you tried to open, there should be a message about GRASS being blocked, with an `Open Anyway` button next to it. Click this, and it will allow your Mac to open GRASS from now on. See [this screenshot](https://support.apple.com/en-nz/102445#openanyway) for an example.
 
 ## Usage
 
