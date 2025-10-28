@@ -1,6 +1,8 @@
 .conda
 grassdata/
 __pycache__/
+data/queenstown_lakes_building_outlines
+data/shotover_country
 
 # Rasters
 *.tif
@@ -21,3 +23,6 @@ __pycache__/
 # Other data formats
 *.csv
 *.gpkg
+
+# OSX
+.DS_Store
