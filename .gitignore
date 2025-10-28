@@ -36,5 +36,5 @@ __pycache__/
 *.csv
 *.gpkg
 
-# Dependecy manager agnostic
+# Dependency manager agnostic
 *.lock
