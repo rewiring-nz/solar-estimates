@@ -28,51 +28,42 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Estimate solar irradiance on buildings from DSM data",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Example:
-  %(prog)s \\
-    --dsm-glob "data/shotover_country/*.tif" \\
-    --building-dir "data/queenstown-lakes-building-outlines" \\
-    --area-name "shotover_country" \\
-    --building-layer-name "queenstown_lakes_buildings" \\
-    --grass-base "/Applications/GRASS-8.4.app/Contents/Resources"
-        """,
     )
 
     parser.add_argument(
         "--dsm-glob",
-        required=True,
-        help='Glob for DSM GeoTIFF files (example: "data/shotover_country/*.tif")',
+        default="data/shotover_country/*.tif",
+        help='Glob for DSM GeoTIFF files (default: "data/shotover_country/*.tif")',
     )
 
     parser.add_argument(
         "--building-dir",
-        required=True,
-        help='Directory containing building outline shapefiles (example: "data/queenstown_lakes_building_outlines")',
+        default="data/queenstown_lakes_building_outlines",
+        help='Directory containing building outline shapefiles (default: "data/queenstown_lakes_building_outlines")',
     )
 
     parser.add_argument(
         "--area-name",
-        required=True,
-        help='Descriptive name for the area (example: "shotover_country")',
+        default="shotover_country",
+        help='Descriptive name for the area (default: "shotover_country")',
     )
 
     parser.add_argument(
         "--building-layer-name",
-        required=True,
-        help='Name of the building outline layer (example: "queenstown_lakes_buildings")',
+        default="queenstown_lakes_buildings",
+        help='Name of the building outline layer (default: "queenstown_lakes_buildings")',
     )
 
     parser.add_argument(
         "--grass-base",
-        required=True,
-        help='Path to GRASS GIS installation base directory (example: "/Applications/GRASS-8.4.app/Contents/Resources")',
+        default="/Applications/GRASS-8.4.app/Contents/Resources",
+        help='Path to GRASS GIS installation base directory (default: "/Applications/GRASS-8.4.app/Contents/Resources")',
     )
 
     parser.add_argument(
         "--output-prefix",
         default="solar_on_buildings",
-        help='Prefix for output files (example: "solar_on_buildings")',
+        help='Prefix for output files (default: "solar_on_buildings")',
     )
 
     parser.add_argument(
@@ -186,6 +177,7 @@ def main():
             output_tif=f"{args.area_name}_solar_irradiance_on_buildings.tif",
             grass_module=Module,
         )
+        # TODO: Write the final raster to file
 
     print("Generating statistics...")
     create_stats(

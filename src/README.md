@@ -49,7 +49,7 @@ To get around this, go to `Applications`, right click the GRASS app and click `O
 ## Usage
 
 ```bash
-# Activate the conda env
+# Activate the conda env. Deactivate with `conda deactivate`
 conda activate solar-estimates
 
 # See all available options
@@ -61,12 +61,7 @@ This repo includes some example data in the `data/` folder. You can use these to
 
 ```bash
 # Run the pipeline (example base usage)
-python pipeline.py \
-  --dsm-glob "data/shotover_country/*.tif" \
-  --building-dir "data/queenstown_lakes_building_outlines" \
-  --area-name "shotover_country" \
-  --building-layer-name "queenstown_lakes_buildings" \
-  --grass-base "/Applications/GRASS-8.4.app/Contents/Resources"
+python pipeline.py
 
 # Run the pipeline (including examples for all optional arguments)
 python pipeline.py \
