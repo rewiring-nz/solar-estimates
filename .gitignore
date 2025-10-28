@@ -35,6 +35,12 @@ __pycache__/
 # Other data formats
 *.csv
 *.gpkg
+*.DS_Store
 
 # Dependency manager agnostic
 *.lock
+
+# Package manager things
+build/
+.venv/
+*.egg-info
