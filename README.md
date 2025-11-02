@@ -53,10 +53,12 @@ Refer to our [CONTRIBUTING.md](CONTRIBUTING.md) page for details.
 
 #### Contributors
 
-* Multiple (waiting on permission to list here)
+* Rafferty Parker
+* And multiple others (waiting on permission to list here)
 
 #### Organisations
 This project is supported by:
-* Rewiring Aotearoa
-* The University of Canterbury
+* [Rewiring Aotearoa](https://www.rewiring.nz/)
+* [The University of Canterbury](https://www.canterbury.ac.nz/)
+* [Anthill Ltd](https://anthill.co.nz/)
 
