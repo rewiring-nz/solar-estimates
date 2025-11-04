@@ -1,5 +1,4 @@
 from .linke import linke_by_day
-import numpy as np
 
 
 def calculate_solar_irradiance(
@@ -98,13 +97,12 @@ def calculate_solar_irradiance_interpolated(
     cleanup: bool = True,
 ):
     """
-    Interpolate solar irradiance between key_days using linear interpolation.
-    Creates weighted sum directly. Optionally cleans up individual day rasters
-    from GRASS' database with cleanup=True, and exports the summed raster as
-    a GeoTIFF with export=True.
+    Interpolate solar irradiance rasters between key_days.
+    Optionally cleans up individual day rasters from GRASS' database with
+    cleanup=True, and exports the summed raster as a GeoTIFF with export=True.
     """
     # Calculate irradiance for each key day and store rasters
-    day_rasters = []
+    key_day_rasters = []
     for day in key_days:
         day_map = calculate_solar_irradiance(
             dsm=dsm,
@@ -115,62 +113,38 @@ def calculate_solar_irradiance_interpolated(
             step=step,
             grass_module=grass_module,
         )
-        day_rasters.append(day_map)
+        key_day_rasters.append(day_map)
 
-    # Use sorted key_days to determine interpolation range
-    key_days_sorted = sorted(key_days)
-    first, last = key_days_sorted[0], key_days_sorted[-1]
+    # Determine interpolation range from min to max key day
+    interp_days = list(range(min(key_days), max(key_days) + 1))
 
-    # Determine interpolation days (handles wrap-around)
-    if last < first:
-        interp_days = list(range(first, 366)) + list(range(1, last + 1))
-    else:
-        interp_days = list(range(first, last + 1))
+    # Generate output raster names and sampling positions for each day
+    interp_rasters = [f"{dsm}_solar_irradiance_interp_day{day}" for day in interp_days]
 
-    # Calculate total weight for each key day using simple linear interpolation
-    weights_per_key_day = np.zeros(len(key_days_sorted))
+    # Use r.series.interp to interpolate between key days
+    # datapos: positions of calculated raster data (key days)
+    # samplingpos: positions to interpolate (all days in range)
+    r_series_interp = grass_module(
+        "r.series.interp",
+        input=",".join(key_day_rasters),
+        datapos=key_days,
+        output=",".join(interp_rasters),
+        samplingpos=interp_days,
+        method="linear",
+        overwrite=True,
+    )
+    r_series_interp.run()
 
-    for day in interp_days:
-        # Find which two key days this falls between
-        # Handle wrap-around
-        if last < first:
-            day_adj = day if day >= first else day + 365
-            key_days_adj = [kd if kd >= first else kd + 365 for kd in key_days_sorted]
-        else:
-            day_adj = day
-            key_days_adj = key_days_sorted
-
-        # Find surrounding key days
-        idx_after = next((i for i, kd in enumerate(key_days_adj) if kd >= day_adj), 0)
-        idx_before = (idx_after - 1) % len(key_days_sorted)
-
-        day_before = key_days_adj[idx_before]
-        day_after = key_days_adj[idx_after]
-
-        # Linear interpolation weight
-        if day_before == day_after:
-            # Exactly on a key day
-            weights_per_key_day[idx_before] += 1.0
-        else:
-            span = day_after - day_before
-            weight_after = (day_adj - day_before) / span
-            weight_before = 1.0 - weight_after
-
-            weights_per_key_day[idx_before] += weight_before
-            weights_per_key_day[idx_after] += weight_after
-
-    # Create a single weighted sum expression
+    # Sum all interpolated rasters
     output_name = f"{dsm}_solar_irradiance_interp"
-
-    weighted_terms = [
-        f"({raster} * {weight:.10f})"
-        for raster, weight in zip(day_rasters, weights_per_key_day)
-    ]
-
-    expression = f"{output_name} = " + " + ".join(weighted_terms)
-
-    r_mapcalc = grass_module("r.mapcalc", expression=expression, overwrite=True)
-    r_mapcalc.run()
+    r_series = grass_module(
+        "r.series",
+        input=",".join(interp_rasters),
+        output=output_name,
+        method="sum",
+        overwrite=True,
+    )
+    r_series.run()
 
     # Export the raster as a GeoTIFF
     if export:
@@ -186,8 +160,9 @@ def calculate_solar_irradiance_interpolated(
 
     # Clean up intermediate rasters
     if cleanup:
+        all_rasters = key_day_rasters + interp_rasters
         g_remove = grass_module(
-            "g.remove", type="raster", name=",".join(day_rasters), flags="f"
+            "g.remove", type="raster", name=",".join(all_rasters), flags="f"
         )
         g_remove.run()
 

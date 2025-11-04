@@ -25,17 +25,26 @@ Not yet implemented/added:
 
 ## Installation
 
-### GRASS
-
-Download and install GRASS following these instructions: https://cmbarton.github.io/grass-mac/download/#installation-tips
-
-#### Notes for GRASS on Mac
+### GRASS on Mac OS
 
 *This has been tested for GRASS 8.4.1. Apple ARM on MacOS Sequoia 15.7.1.*
+
+Download and install GRASS following these instructions: https://cmbarton.github.io/grass-mac/download/#installation-tips
 
 When trying to open the GRASS app, you may get the warning `GRASS is Damaged and Can’t Be Opened. You Should Move It To The Trash.`. Although [the documentation says](https://cmbarton.github.io/grass-mac/download/#important-apple-security-block-and-workaround-for-grass-versions-downloaded-in-2024-and-prior-to-9-january-2025) that this should be resolved as of 9 Jan 2025, this may still be the case for you.
 
 To get around this, go to `Applications`, right click the GRASS app and click `Open`. It will block it, so cancel. Then go to your Mac's `System Settings` > `Privacy & Security` > scroll down to the `Security` section at the bottom. Assuming GRASS was the last app you tried to open, there should be a message about GRASS being blocked, with an `Open Anyway` button next to it. Click this, and it will allow your Mac to open GRASS from now on. See [this screenshot](https://support.apple.com/en-nz/102445#openanyway) for an example.
+
+#### Install GDAL
+
+Use Homebrew (`brew install gdal`) as per the official instructions: https://gdal.org/en/stable/download.html#mac-os
+
+Ensure the GDAL used is the one installed via Homebrew:
+
+```bash
+> which gdalinfo
+/opt/homebrew/bin/gdalinfo
+```
 
 ### Python packages
 
