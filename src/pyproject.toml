@@ -1,11 +1,12 @@
 [project]
 name = "solar-estimates"
 version = "0.1.0"
-description = "Estimating solar potential for New Zealand"
+description = "Tools to estimate solar potential for New Zealand"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12" # Ubuntu LTS 24.04 doesn't support 3.13
 dependencies = [
-    "gdal>=3.11.4",
+    "gdal==3.11.4", # For Ubuntu LTS 24.04, need to lock to this version, and not go to 3.12
+    # "gdal>=3.11.4",
     "scipy>=1.16.2",
 ]
 
