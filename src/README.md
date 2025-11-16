@@ -63,8 +63,12 @@ This repo includes some example data in the `data/` folder. You can use these to
 # Run the example
 python3 example.py
 
-# Run the pipeline (same as example, base usage)
+# Run the pipeline on mac (same as example, base usage)
 python3 pipeline.py
+
+# Run the pipeline on Ubuntu LTS 24.04
+python3 pipeline.py \
+  --grass-base "/usr/lib/grass83"
 
 # See all available options
 python3 pipeline.py --help
