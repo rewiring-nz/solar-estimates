@@ -40,9 +40,9 @@ if platform.system() == "Darwin":  # macOS
     # Standard path for macOS installations using the GRASS 8.x DMG installer
     gisbase = "/Applications/GRASS-8.4.app/Contents/Resources"
 elif platform.system() == "Linux":  # Ubuntu/Linux
-    # Standard path for Ubuntu systems where GRASS 8.3 is installed via apt.
-    # NOTE: If your GRASS version is different (e.g., 8.2), you may need to update 'grass83' here.
-    gisbase = "/usr/lib/grass83"
+    # Standard path for Ubuntu systems where GRASS 8.4 is installed via apt.
+    # NOTE: If your GRASS version is different (e.g., 8.2), you may need to update 'grass84' here.
+    gisbase = "/usr/lib/grass84"
 else:
     # Raise an error for other operating systems or if the path is unknown
     raise EnvironmentError(
