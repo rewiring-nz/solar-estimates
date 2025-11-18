@@ -29,7 +29,7 @@ dsm_data_glob = "data/shotover_country/*.tif"
 building_outline_dir = "data/queenstown_lakes_building_outlines"
 
 # Used for descriptive filenames.
-area_name = "shotover_country_winter"
+area_name = "shotover_country"
 building_outline_name = "queenstown_lakes_buildings"
 
 # Set up GRASS to be scriptable via Python.
@@ -55,7 +55,7 @@ virtual_raster = load_virtual_raster_into_grass(
 aspect, slope = calculate_slope_aspect_rasters(dsm=virtual_raster, grass_module=Module)
 
 # Simple one-week calculation
-days = [200, 207]
+days = [1, 7]
 
 # Annual using solstices and equinoxes as key days for interpolation
 # days = [1, 79, 172, 266, 357, 365]
