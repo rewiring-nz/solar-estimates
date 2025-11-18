@@ -74,9 +74,6 @@ days = [1, 7]
 # Winter only with winter solstice
 # days = [152, 172, 243]
 
-# Summer only with summer solstice
-# days = [335, 357, 59]
-
 solar_irradiance = calculate_solar_irradiance_interpolated(
     dsm=virtual_raster,
     aspect=aspect,
