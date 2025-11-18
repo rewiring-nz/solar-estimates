@@ -12,6 +12,8 @@ A set of Python scripts that use libraries from GDAL and GRASS GIS to aid automa
 
 `linke.py` - interpolation function for monthly Linke turbidity values which are used as part of the r.sun algorithm.
 
+`wrf.py` - functions to load, clip, and resample WRF (Weather Research and Forecasting) netCDF data to incorporate measured solar radiation.
+
 `stats.py` - creates a GeoPackage and optional CSV file of solar irradiance statistics for each building polygon.
 
 Not yet implemented/added:
