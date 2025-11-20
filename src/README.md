@@ -68,7 +68,7 @@ python3 pipeline.py
 
 # Run the pipeline on Ubuntu LTS 24.04
 python3 pipeline.py \
-  --grass-base "/usr/lib/grass83"
+  --grass-base "/usr/lib/grass84"
 
 # See all available options
 python3 pipeline.py --help
