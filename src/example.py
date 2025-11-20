@@ -1,6 +1,8 @@
 # This is example code intended to demonstrate how to use the functions in the lib/ directory
 # to estimate solar irradiance for a provided digital surface model.
 
+import platform  # Import platform module for OS detection
+
 from utils.building_outlines import (
     calculate_outline_raster,
     export_final_raster,
@@ -17,6 +19,8 @@ from utils.grass_utils import setup_grass
 from utils.solar_irradiance import calculate_solar_irradiance_interpolated
 from utils.stats import create_stats
 
+# --- Configuration ---
+
 # DSM data is usually tiled and contains multiple GeoTIFFs. There is example data in the data/ directory.
 dsm_data_glob = "data/shotover_country/*.tif"
 
@@ -27,12 +31,29 @@ building_outline_dir = "data/queenstown_lakes_building_outlines"
 area_name = "shotover_country"
 building_outline_name = "queenstown_lakes_buildings"
 
-# Set up GRASS to be scriptable via Python. Note that this path will vary based on OS and installation method. The
-# path below is for a MacOS installation using the .dmg installer.
-# (see: https://cmbarton.github.io/grass-mac/download/#installation-tips)
-gscript, Module = setup_grass(gisbase="/Applications/GRASS-8.4.app/Contents/Resources")
+# --- GRASS GIS Setup for Cross-Platform Resilience ---
 
-# Main workflow. Refer to the docstrings in the respective functions for more information.
+# Set up GRASS 'gisbase' path based on OS.
+# Todo: Update this to be less brittle, and move logic into grass-utils.py
+
+if platform.system() == "Darwin":  # macOS
+    # Standard path for macOS installations using the GRASS 8.x DMG installer
+    gisbase = "/Applications/GRASS-8.4.app/Contents/Resources"
+elif platform.system() == "Linux":  # Ubuntu/Linux
+    # Standard path for Ubuntu systems where GRASS 8.4 is installed via apt.
+    # NOTE: If your GRASS version is different (e.g., 8.2), you may need to update 'grass84' here.
+    gisbase = "/usr/lib/grass84"
+else:
+    # Raise an error for other operating systems or if the path is unknown
+    raise EnvironmentError(
+        f"Unsupported operating system ({platform.system()}) or missing GRASS GIS installation path. "
+        f"Please manually define the 'gisbase' variable."
+    )
+
+gscript, Module = setup_grass(gisbase=gisbase)
+
+# --- Main Workflow ---
+# Refer to the docstrings in the respective functions for more information.
 
 remove_masks(grass_module=Module)
 
