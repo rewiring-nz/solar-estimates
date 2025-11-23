@@ -36,7 +36,7 @@ def setup_grass(
     # Create location if it doesn't exist
     location_path = os.path.join(grassdata_dir, location)
     if not os.path.exists(location_path):
-        cmd = ["grass", "-c", "EPSG:2193", location_path]
+        cmd = ["grass", "--text", "-c", "EPSG:2193", location_path]
         print(f"DEBUG: Attempting to create GRASS Location: {' '.join(cmd)}")
         
         proc = subprocess.Popen(
