@@ -24,6 +24,7 @@ apt update
 apt install -y python3.12-venv
 
 echo "Adding UbuntuGIS Unstable PPA..."
+apt install -y software-properties-common # Pulls in add-apt-repository for minimal ubuntu
 add-apt-repository --yes ppa:ubuntugis/ubuntugis-unstable
 
 # The PPA may be missing packages for the latest "questing" (25.10) release.
