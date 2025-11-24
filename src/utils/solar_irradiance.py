@@ -167,3 +167,64 @@ def calculate_solar_irradiance_interpolated(
         g_remove.run()
 
     return output_name
+
+
+def calculate_solar_coefficient(
+    irradiance_raster: str,
+    grass_module,
+    export: bool = False,
+):
+    """
+    Create a normalized coefficient raster (0-1) from an irradiance raster.
+    Values are normalized using min-max scaling.
+    """
+    output_name = f"{irradiance_raster}_coefficient"
+
+    # Get statistics from the irradiance raster using r.univar
+    import subprocess
+
+    result = subprocess.run(
+        ["r.univar", "-g", irradiance_raster],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    # Parse min and max values from output
+    stats = {}
+    for line in result.stdout.strip().split("\n"):
+        if "=" in line:
+            key, value = line.split("=", 1)
+            stats[key] = value
+
+    min_val = float(stats["min"])
+    max_val = float(stats["max"])
+
+    # Use r.mapcalc to normalize values between 0 and 1
+    # Formula: (value - min) / (max - min)
+    mapcalc_expr = (
+        f"{output_name} = "
+        f"float({irradiance_raster} - {min_val}) / "
+        f"float({max_val} - {min_val})"
+    )
+
+    r_mapcalc = grass_module(
+        "r.mapcalc",
+        expression=mapcalc_expr,
+        overwrite=True,
+    )
+    r_mapcalc.run()
+
+    # Export the coefficient raster as a GeoTIFF
+    if export:
+        r_out = grass_module(
+            "r.out.gdal",
+            input=output_name,
+            output=f"{output_name}.tif",
+            format="GTiff",
+            createopt="TFW=YES,COMPRESS=LZW",
+            overwrite=True,
+        )
+        r_out.run()
+
+    return output_name
