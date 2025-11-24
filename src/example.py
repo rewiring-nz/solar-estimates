@@ -14,7 +14,10 @@ from utils.dsm import (
     merge_rasters,
 )
 from utils.grass_utils import setup_grass
-from utils.solar_irradiance import calculate_solar_irradiance_interpolated
+from utils.solar_irradiance import (
+    calculate_solar_coefficient,
+    calculate_solar_irradiance_interpolated,
+)
 from utils.stats import create_stats
 from utils.wrf import (
     calculate_wrf_on_buildings,
@@ -69,10 +72,17 @@ solar_irradiance = calculate_solar_irradiance_interpolated(
     aspect=aspect,
     slope=slope,
     key_days=days,
-    step=1,
+    step=0.05,
     grass_module=Module,
-    export=False,
+    export=True,
     cleanup=True,
+)
+
+# Create normalized coefficient raster (0-1) from irradiance values.
+solar_coefficient = calculate_solar_coefficient(
+    irradiance_raster=solar_irradiance,
+    grass_module=Module,
+    export=True,
 )
 
 # Load building outlines into GRASS.
@@ -106,7 +116,7 @@ wrf_day_rasters, wrf_summed = process_wrf_for_grass(
     target_crs="EPSG:2193",
     days=days,
     clip_to_raster=virtual_raster,
-    print_diagnostics=True,
+    print_diagnostics=False,
 )
 
 # Create raster for WRF clipped to building outlines.
@@ -120,22 +130,37 @@ wrf_on_buildings = calculate_wrf_on_buildings(
 # Clean up intermediate WRF rasters (day rasters and summed raster)
 cleanup_wrf_intermediates(wrf_day_rasters, wrf_summed, Module)
 
+# Adjust WRF values by solar coefficient (multiply WRF by coefficient percentage)
+wrf_adjusted = "wrf_on_buildings_adjusted"
+mapcalc_expr = f"{wrf_adjusted} = {wrf_on_buildings} * {solar_coefficient}"
+Module("r.mapcalc", expression=mapcalc_expr, overwrite=True).run()
+
+# Export the adjusted WRF raster
+Module(
+    "r.out.gdal",
+    input=wrf_adjusted,
+    output=f"{area_name}_wrf_adjusted.tif",
+    format="GTiff",
+    createopt="TFW=YES,COMPRESS=LZW",
+    overwrite=True,
+).run()
+
 # This can be used to export a raster of solar irradiance on buildings if required
 #
-# final_raster = export_final_raster(
-#     raster_name=solar_on_buildings_filtered,
-#     slope=slope,
-#     aspect=aspect,
-#     output_tif=f"{area_name}_solar_irradiance_on_buildings.tif",
-#     grass_module=Module,
-# )
+final_raster = export_final_raster(
+    raster_name=solar_on_buildings_filtered,
+    slope=slope,
+    aspect=aspect,
+    output_tif=f"{area_name}_solar_irradiance_on_buildings.tif",
+    grass_module=Module,
+)
 
 # Calculate statistics and create a GeoPackage and optional CSV.
 create_stats(
     area=area_name,
     building_outlines=outlines,
     rooftop_raster="solar_on_buildings_filtered",
-    wrf_raster=wrf_on_buildings,
+    wrf_raster=wrf_adjusted,
     output_csv=True,
     grass_module=Module,
 )
