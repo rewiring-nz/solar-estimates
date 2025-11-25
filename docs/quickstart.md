@@ -2,18 +2,17 @@
 
 This document describes how a developer can get the New Zealand Solar Map tools running in a development environment.
 
+Last update: 23 Nov 2025
+
 ## Context
 
-We have designed the New Zealand Solar Map tools to run in a linux environment, although other platforms will likely work too.  
-For development, we recommend working on a small subset of data, to reduce your CPU compute time.  
-To process data across the country, we typically make use of large cloud compute.  
-This documentation describes:
+As at November 2025, these scripts are still a work-in-progress. Reach out to the team for latest advice.
 
-* Setting up a free Google Cloud Platform (GCP) Ubuntu environment.  
-* Configuring up the linux environment.  
-* Running your first “Hello World” instance.
+* The scripts were initially developed on Mac, as explained in ../src/README.md
+* We now have a version running on Ubuntu 24.04 LTS. Follow install script in ../scripts/setup-ubuntu-nz-solar.sh , then run the python scripts in ../src/README.md
 
 ## Google Cloud Ubuntu free-tier setup
+As at Nov 2025, we haven't got the Cloud Ubuntu environment working. This is as far as we've got so far:
 
 This how-to describes setting up a free tier virtual machine (VM) on Google Cloud Platform (GCP) for your NZ Solar Map Tool development.
 
@@ -41,14 +40,3 @@ The easiest way to connect to your new virtual machine is via the browser-based 
 1. On the [Virtual Machine](https://console.cloud.google.com/compute/instances) page, find your new instance.  
 2. In the row for your instance, click the SSH button.  
 3. A separate browser window will open, automatically establishing a secure connection to your Ubuntu terminal.
-
-## Task 4: Install applications
-
-The applications and git repository you will need to setup are loaded by the script [setup.sh](https://github.com/rewiring-nz/solar-estimates/blob/main/setup.sh).  
-Step 4.1 In a bash terminal, download and then run [setup.sh](https://github.com/rewiring-nz/solar-estimates/blob/main/setup.sh) script.
-
-```bash
-# Download and run setup script which installs dependancies and applications and git repository 
-wget https://github.com/rewiring-nz/solar-estimates/blob/main/setup.sh  
-sudo bash setup.sh
-```
