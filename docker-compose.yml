@@ -1,0 +1,36 @@
+# File: docker-compose.yml
+
+# Define the services (containers) you want to run
+services:
+  solar_pipeline:
+    # Build context is the current directory, using the Dockerfile we previously corrected
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    container_name: nz_solar_pipeline_dev
+    
+    # Mount local directories for seamless development and persistence
+    volumes:
+      # Mount the entire project root. Changes to your code are instantly reflected.
+      - .:/app
+      
+      # Persist the GRASS database (grassdata) using a Docker named volume.
+      # This is critical to save intermediate geospatial files across sessions.
+      - grass_db:/app/grassdata
+      
+    # The command to run your pipeline.py for testing (as per your README)
+    command: 
+      [
+        "--dsm-glob", "src/data/shotover_country/*.tif",
+        "--building-dir", "src/data/queenstown_lakes_building_outlines",
+        "--area-name", "shotover_country",
+        "--building-layer-name", "queenstown_lakes_buildings",
+        #"--grass-base", "/usr/lib/grass", # TBD: change grass-utils.py to default to this
+        "--grass-base", "/usr/lib/grass84",
+      ]
+      
+# Define the named volume for the GRASS database
+volumes:
+  grass_db:
+    driver: local
