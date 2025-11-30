@@ -18,6 +18,7 @@ A set of Python scripts that use libraries from GDAL and GRASS GIS to aid automa
 
 Not yet implemented/added:
 - dynamic loading of DSM data from LINZ (see: https://github.com/linz/elevation/blob/master/docs/usage.md)
+- weather profiles as a CLI argument (e.g. worst-case winter)
 - output of final results
     - total solar generation for area taking into account:
         - solar panel size/efficiency/capacity
@@ -27,7 +28,7 @@ Not yet implemented/added:
 
 ## Installation
 
-### GRASS on Mac OS
+### GRASS on macOS
 
 *This has been tested for GRASS 8.4.1. Apple ARM on MacOS Sequoia 15.7.1.*
 
@@ -37,7 +38,7 @@ When trying to open the GRASS app, you may get the warning `GRASS is Damaged and
 
 To get around this, go to `Applications`, right click the GRASS app and click `Open`. It will block it, so cancel. Then go to your Mac's `System Settings` > `Privacy & Security` > scroll down to the `Security` section at the bottom. Assuming GRASS was the last app you tried to open, there should be a message about GRASS being blocked, with an `Open Anyway` button next to it. Click this, and it will allow your Mac to open GRASS from now on. See [this screenshot](https://support.apple.com/en-nz/102445#openanyway) for an example.
 
-#### Install GDAL
+### Installing GDAL on macOS
 
 Use Homebrew (`brew install gdal`) as per the official instructions: https://gdal.org/en/stable/download.html#mac-os
 
@@ -66,61 +67,62 @@ source .venv/bin/activate
 pip install .
 ```
 
-## Usage
+## Example usage
 
 This repo includes some example data in the `data/` folder. You can use these to try out the pipeline.
 
 ```bash
-# Run the example
-python3 example.py
-
-# Run the pipeline on mac (same as example, base usage)
-python3 pipeline.py
-
-# Run the pipeline on Ubuntu LTS 24.04
-python3 pipeline.py \
-  --grass-base "/usr/lib/grass84"
-
 # See all available options
 python3 pipeline.py --help
 
-# Run the pipeline (including examples for all optional arguments)
+# Run the pipeline using all defaults
+python3 pipeline.py
+
+# Run the pipeline specifying some arguments
 python3 pipeline.py \
   --dsm-glob "data/shotover_country/*.tif" \
   --building-dir "data/queenstown_lakes_building_outlines" \
   --area-name "shotover_country" \
   --building-layer-name "queenstown_lakes_buildings" \
-  --grass-base "/Applications/GRASS-8.4.app/Contents/Resources" \
   --output-prefix "my_solar_analysis" \
-  --max-slope 30.0 \
-  --key-days 152 172 243 \
   --time-step 0.5 \
-  --export-raster
+  --export-rasters
 
-# Deactivate the env once you're done
-deactivate
+# Run the pipeline with WRF data
+python3 pipeline.py \
+  --dsm-glob "data/shotover_country/*.tif" \
+  --building-dir "data/queenstown_lakes_building_outlines" \
+  --area-name "shotover_country" \
+  --building-layer-name "queenstown_lakes_buildings" \
+  --output-prefix "my_solar_analysis" \
+  --time-step 0.5 \
+  --wrf-file "data/swdown_2016-2020_daily_mean_doy.nc" \
+  --source-crs "EPSG:4326" \
+  --target-crs "EPSG:2193" \
+  --export-rasters
 ```
 
 ### Command-line arguments
 
 | Argument | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `--dsm-glob` | Yes | - | Glob glob for DSM GeoTIFF files |
-| `--building-dir` | Yes | - | Directory containing building outline shapefiles |
-| `--area-name` | Yes | - | Descriptive name for the area (used in filenames) |
-| `--building-layer-name` | Yes | - | Name of the building outline layer |
-| `--grass-base` | Yes | - | Path to GRASS GIS installation |
+| `--dsm-glob` | No | `data/shotover_country/*.tif` | Glob pattern for DSM GeoTIFF files |
+| `--building-dir` | No | `data/queenstown_lakes_building_outlines` | Directory containing building outline shapefiles |
+| `--area-name` | No | `shotover_country` | Descriptive name for the area (used in filenames) |
+| `--building-layer-name` | No | `queenstown_lakes_buildings` | Name of the building outline layer |
+| `--grass-base` | No | Auto-detected | Path to GRASS GIS installation |
 | `--output-prefix` | No | `solar_on_buildings` | Prefix for output files |
 | `--max-slope` | No | `45.0` | Maximum slope in degrees for filtering |
-| `--key-days` | No | `1 79 172 266 357 365` | Day numbers for solar irradiance interpolation |
+| `--key-days` | No | `1 7` | Day numbers for solar irradiance interpolation |
 | `--time-step` | No | `1.0` | Time step in decimal hours for calculations |
-| `--export-raster` | No | `False` | Export final raster as GeoTIFF |
+| `--export-rasters` | No | `False` | Export all rasters as GeoTIFFs |
+| `--wrf-file` | No | - | Path to WRF NetCDF file for measured radiation data |
+| `--source-crs` | No | `EPSG:4326` | Source CRS for WRF data |
+| `--target-crs` | No | `EPSG:2193` | Target CRS for WRF reprojection |
 
-### GRASS base paths by platform
+### Note on GRASS GIS base paths by platform
 
-- **macOS (DMG installer)**: `/Applications/GRASS-8.4.app/Contents/Resources`
-- **Linux (apt)**: TBC
-- **Windows**: TBC
+Currently, the pipeline will attempt to auto-detect the operating system and set the GRASS base path accordingly. If this fails, you can manually specify the path using the `--grass-base` argument.
 
 ### Linting & formatting
 
@@ -143,7 +145,12 @@ The pipeline generates:
    - `{output_prefix}` - Solar irradiance on buildings
    - `{output_prefix}_filtered` - Filtered by slope
 
-2. **Statistics CSV** - Building-level solar potential statistics (see `stats.py`)
+2. **GeoPackage** - `{area_name}_building_stats.gpkg` with building-level solar potential statistics
 
-3. **GeoTIFF** (if `--export-raster` used):
-   - `{area_name}_solar_irradiance_on_buildings.tif`
+3. **Statistics CSV** - `{area_name}_building_stats.csv` CSV format for building-level solar potential statistics
+
+4. **GeoTIFFs** (if `--export-rasters` used):
+   - `{area_name}_solar_irradiance_on_buildings.tif` - Final solar irradiance on buildings
+   - `{dsm}_solar_irradiance_interp.tif` - Interpolated solar irradiance
+   - `{dsm}_solar_irradiance_interp_coefficient.tif` - Solar coefficient (when WRF enabled)
+   - `{area_name}_wrf_adjusted.tif` - WRF-adjusted radiation (when WRF enabled)

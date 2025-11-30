@@ -56,7 +56,7 @@ def print_wrf_diagnostics(nc_file_path):
         except Exception as e:
             print(f"    (Could not compute statistics: {e})")
         if var_data.attrs:
-            print(f"    Attributes:")
+            print("    Attributes:")
             for attr_key, attr_val in var_data.attrs.items():
                 print(f"      {attr_key}: {attr_val}")
     print()

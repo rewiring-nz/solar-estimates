@@ -4,6 +4,7 @@ CLI tool for estimating solar irradiance on buildings from digital surface model
 """
 
 import argparse
+import platform
 import sys
 from pathlib import Path
 
@@ -20,8 +21,26 @@ from utils.dsm import (
     merge_rasters,
 )
 from utils.grass_utils import setup_grass
-from utils.solar_irradiance import calculate_solar_irradiance_interpolated
+from utils.solar_irradiance import (
+    calculate_solar_coefficient,
+    calculate_solar_irradiance_interpolated,
+)
 from utils.stats import create_stats
+from utils.wrf import (
+    calculate_wrf_on_buildings,
+    cleanup_wrf_intermediates,
+    process_wrf_for_grass,
+)
+
+
+def detect_grass_base():
+    """Auto-detect GRASS GIS installation path based on operating system."""
+    if platform.system() == "Darwin":
+        return "/Applications/GRASS-8.4.app/Contents/Resources"
+    elif platform.system() == "Linux":
+        return "/usr/lib/grass84"
+    else:
+        return None
 
 
 def parse_args():
@@ -56,8 +75,8 @@ def parse_args():
 
     parser.add_argument(
         "--grass-base",
-        default="/Applications/GRASS-8.4.app/Contents/Resources",
-        help='Path to GRASS GIS installation base directory (default: "/Applications/GRASS-8.4.app/Contents/Resources")',
+        default=None,
+        help="Path to GRASS GIS installation base directory (auto-detected if not provided)",
     )
 
     parser.add_argument(
@@ -77,21 +96,40 @@ def parse_args():
         "--key-days",
         type=int,
         nargs="+",
-        default=[1, 79, 172, 266, 357, 365],
-        help="Day numbers for solar irradiance interpolation (default: solstices and equinoxes)",
+        default=[1, 7],
+        help="Day numbers for solar irradiance interpolation (default: first week of January)",
     )
 
     parser.add_argument(
         "--time-step",
         type=float,
         default=1.0,
-        help="Time step when computing all-day radiation sums in decimal hours. Default: 1.0",
+        help="Time step when computing all-day radiation sums in decimal hours (default: 1.0)",
     )
 
     parser.add_argument(
-        "--export-raster",
+        "--export-rasters",
         action="store_true",
-        help="Export final solar irradiance raster as GeoTIFF",
+        help="Export rasters (solar irradiance, coefficient, WRF adjusted, final) as GeoTIFFs",
+    )
+
+    # WRF-related arguments
+    parser.add_argument(
+        "--wrf-file",
+        default=None,
+        help="Path to WRF NetCDF file for measured radiation data (optional)",
+    )
+
+    parser.add_argument(
+        "--source-crs",
+        default="EPSG:4326",
+        help='Source CRS for WRF data (default: "EPSG:4326")',
+    )
+
+    parser.add_argument(
+        "--target-crs",
+        default="EPSG:2193",
+        help='Target CRS for WRF reprojection (default: "EPSG:2193" - NZGD2000)',
     )
 
     return parser.parse_args()
@@ -109,9 +147,22 @@ def main():
             )
             sys.exit(1)
 
+    # Auto-detect or validate GRASS base path
+    grass_base = args.grass_base
+    if grass_base is None:
+        grass_base = detect_grass_base()
+        if grass_base is None:
+            print(
+                f"Error: Could not auto-detect GRASS GIS installation for {platform.system()}. "
+                "Please provide --grass-base argument.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        print(f"Auto-detected GRASS GIS at: {grass_base}")
+
     # Set up GRASS environment
-    print(f"Setting up GRASS GIS from: {args.grass_base}")
-    gscript, Module = setup_grass(gisbase=args.grass_base)
+    print(f"Setting up GRASS GIS from: {grass_base}")
+    gscript, Module = setup_grass(gisbase=grass_base)
 
     # Main workflow
     print("Removing existing masks...")
@@ -142,9 +193,19 @@ def main():
         key_days=args.key_days,
         step=args.time_step,
         grass_module=Module,
-        export=False,
+        export=args.export_rasters,
         cleanup=True,
     )
+
+    # Calculate solar coefficient (needed for WRF adjustment)
+    solar_coefficient = None
+    if args.wrf_file:
+        print("Calculating solar coefficient...")
+        solar_coefficient = calculate_solar_coefficient(
+            irradiance_raster=solar_irradiance,
+            grass_module=Module,
+            export=args.export_rasters,
+        )
 
     print("Loading building outlines...")
     outlines = load_building_outlines(
@@ -168,22 +229,66 @@ def main():
         grass_module=Module,
     )
 
-    if args.export_raster:
+    # WRF processing (optional)
+    wrf_adjusted = None
+    if args.wrf_file:
+        print(f"Processing WRF data from: {args.wrf_file}")
+        wrf_day_rasters, wrf_summed = process_wrf_for_grass(
+            nc_file_path=args.wrf_file,
+            output_prefix="wrf_swdown",
+            grass_module=Module,
+            source_crs=args.source_crs,
+            target_crs=args.target_crs,
+            days=args.key_days,
+            clip_to_raster=virtual_raster,
+            print_diagnostics=False,
+        )
+
+        print("Calculating WRF on buildings...")
+        wrf_on_buildings = calculate_wrf_on_buildings(
+            wrf_summed_raster=wrf_summed,
+            building_vector=outlines,
+            output_name="wrf_on_buildings",
+            grass_module=Module,
+        )
+
+        # Clean up intermediate WRF rasters
+        cleanup_wrf_intermediates(wrf_day_rasters, wrf_summed, Module)
+
+        # Adjust WRF values by solar coefficient
+        print("Adjusting WRF values by solar coefficient...")
+        wrf_adjusted = "wrf_on_buildings_adjusted"
+        mapcalc_expr = f"{wrf_adjusted} = {wrf_on_buildings} * {solar_coefficient}"
+        Module("r.mapcalc", expression=mapcalc_expr, overwrite=True).run()
+
+        # Export the adjusted WRF raster if requested
+        if args.export_rasters:
+            print("Exporting WRF adjusted raster...")
+            Module(
+                "r.out.gdal",
+                input=wrf_adjusted,
+                output=f"{args.area_name}_wrf_adjusted.tif",
+                format="GTiff",
+                createopt="TFW=YES,COMPRESS=LZW",
+                overwrite=True,
+            ).run()
+
+    if args.export_rasters:
         print("Exporting final raster...")
-        final_raster = export_final_raster(
+        export_final_raster(
             raster_name=solar_on_buildings_filtered,
             slope=slope,
             aspect=aspect,
             output_tif=f"{args.area_name}_solar_irradiance_on_buildings.tif",
             grass_module=Module,
         )
-        # TODO: Write the final raster to file
 
     print("Generating statistics...")
     create_stats(
         area=args.area_name,
         building_outlines=outlines,
         rooftop_raster=f"{args.output_prefix}_filtered",
+        wrf_raster=wrf_adjusted,
         output_csv=True,
         grass_module=Module,
     )

@@ -87,7 +87,9 @@ def _calculate_wrf_stats(building_outlines, wrf_raster, grass_module):
     return building_outlines
 
 
-def _export_combined_stats(area, building_outlines, output_csv, grass_module):
+def _export_combined_stats(
+    area, building_outlines, output_csv, grass_module, has_wrf=False
+):
     """Combine clear-sky and WRF statistics, calculate comparison metrics, and export."""
 
     # Extract only buildings with roof_sum values
@@ -100,27 +102,31 @@ def _export_combined_stats(area, building_outlines, output_csv, grass_module):
     )
     v_extract.run()
 
-    # Add several columns:
-    # percent_loss: percentage difference between calculated and measured
-    # area_sqm: building footprint area in square meters
+    # Add area column
     v_db_addcolumn = grass_module(
         "v.db.addcolumn",
         map="filtered_buildings",
-        columns=[
-            "percent_loss DOUBLE PRECISION",
-            "area_sqm DOUBLE PRECISION",
-        ],
+        columns=["area_sqm DOUBLE PRECISION"],
     )
     v_db_addcolumn.run()
 
-    # Calculate percentage loss: (calculated - measured) / calculated * 100
-    v_db_update_percent_loss = grass_module(
-        "v.db.update",
-        map="filtered_buildings",
-        column="percent_loss",
-        query_column="((CAST(roof_sum AS DOUBLE PRECISION) - CAST(wrf_sum AS DOUBLE PRECISION)) / CAST(roof_sum AS DOUBLE PRECISION)) * 100.0",
-    )
-    v_db_update_percent_loss.run()
+    # If WRF data is present, add percent_loss column
+    if has_wrf:
+        v_db_addcolumn_wrf = grass_module(
+            "v.db.addcolumn",
+            map="filtered_buildings",
+            columns=["percent_loss DOUBLE PRECISION"],
+        )
+        v_db_addcolumn_wrf.run()
+
+        # Calculate percentage loss: (calculated - measured) / calculated * 100
+        v_db_update_percent_loss = grass_module(
+            "v.db.update",
+            map="filtered_buildings",
+            column="percent_loss",
+            query_column="((CAST(roof_sum AS DOUBLE PRECISION) - CAST(wrf_sum AS DOUBLE PRECISION)) / CAST(roof_sum AS DOUBLE PRECISION)) * 100.0",
+        )
+        v_db_update_percent_loss.run()
 
     v_db_update_area = grass_module(
         "v.to.db",
@@ -133,11 +139,18 @@ def _export_combined_stats(area, building_outlines, output_csv, grass_module):
     v_db_update_area.run()
 
     if output_csv:
-        # roof_sum (Wh) and roof_kwh (kWh) are also available
+        # Select columns based on whether WRF data is present
+        if has_wrf:
+            columns = "building_i, suburb_loc, town_city, roof_mwh, wrf_mwh, percent_loss, area_sqm, usable_sqm"
+        else:
+            columns = (
+                "building_i, suburb_loc, town_city, roof_mwh, area_sqm, usable_sqm"
+            )
+
         v_db_select = grass_module(
             "v.db.select",
             map="filtered_buildings",
-            columns="building_i, suburb_loc, town_city, roof_mwh, wrf_mwh, percent_loss, area_sqm, usable_sqm",
+            columns=columns,
             where="roof_sum IS NOT NULL",
             file=f"{area}_building_stats.csv",
             overwrite=True,
@@ -158,20 +171,38 @@ def _export_combined_stats(area, building_outlines, output_csv, grass_module):
 
 
 def create_stats(
-    area, building_outlines, rooftop_raster, wrf_raster, output_csv, grass_module
+    area,
+    building_outlines,
+    rooftop_raster,
+    grass_module,
+    wrf_raster=None,
+    output_csv=True,
 ):
-    """Calculate statistics of rooftop solar irradiance for building outlines."""
+    """Calculate statistics of rooftop solar irradiance for building outlines.
 
+    Args:
+        area: Descriptive name for the area (used in output filenames).
+        building_outlines: Name of building outlines vector in GRASS.
+        rooftop_raster: Name of rooftop solar irradiance raster in GRASS.
+        grass_module: GRASS Module function.
+        wrf_raster: Optional name of WRF-adjusted raster in GRASS.
+        output_csv: Whether to export statistics as CSV. Defaults to True.
+
+    Returns:
+        Path to the output GeoPackage file.
+    """
     building_outlines = _calculate_clear_sky_stats(
         building_outlines, rooftop_raster, grass_module
     )
 
-    building_outlines = _calculate_wrf_stats(
-        building_outlines, wrf_raster, grass_module
-    )
+    has_wrf = wrf_raster is not None
+    if has_wrf:
+        building_outlines = _calculate_wrf_stats(
+            building_outlines, wrf_raster, grass_module
+        )
 
     gpkg_file = _export_combined_stats(
-        area, building_outlines, output_csv, grass_module
+        area, building_outlines, output_csv, grass_module, has_wrf=has_wrf
     )
 
     return gpkg_file
