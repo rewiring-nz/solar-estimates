@@ -3,7 +3,7 @@ from osgeo import gdal
 
 
 def load_raster_into_grass(input_tif: str, output_name: str, grass_module):
-    """ "Load a raster file into GRASS GIS, and set the working region to the raster's extent."""
+    """Load a raster file into GRASS GIS, and set the working region to the raster's extent."""
 
     r_in = grass_module(
         "r.in.gdal", input=input_tif, output=output_name, band=1, overwrite=True
@@ -19,7 +19,7 @@ def load_raster_into_grass(input_tif: str, output_name: str, grass_module):
 
 
 def load_virtual_raster_into_grass(input_vrt: str, output_name: str, grass_module):
-    """ "Load a VRT (Virtual Raster) file into GRASS GIS, and set the working region to the raster's extent."""
+    """Load a VRT (Virtual Raster) file into GRASS GIS, and set the working region to the raster's extent."""
 
     r_external = grass_module(
         "r.external", input=input_vrt, output=output_name, band=1, overwrite=True

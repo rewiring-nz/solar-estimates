@@ -1,6 +1,6 @@
 import os
-import sys
 import subprocess
+import sys
 
 
 def setup_grass(
@@ -23,11 +23,11 @@ def setup_grass(
     # Import GRASS modules for Python scripting
     try:
         import grass.script as gscript
-        # CRITICAL: Use the 'setup' submodule for session initialization.
-        from grass.script import setup 
         from grass.pygrass.modules import Module
     except ImportError as e:
-        print(f"Error importing GRASS Python modules. Check if dependencies are installed correctly.")
+        print(
+            "Error importing GRASS Python modules. Check if dependencies are installed correctly."
+        )
         print(f"GISBASE used: {gisbase}")
         raise e
 
@@ -38,7 +38,7 @@ def setup_grass(
     if not os.path.exists(location_path):
         cmd = ["grass", "--text", "-c", "EPSG:2193", location_path]
         print(f"DEBUG: Attempting to create GRASS Location: {' '.join(cmd)}")
-        
+
         proc = subprocess.Popen(
             cmd,
             stdin=subprocess.PIPE,
@@ -47,7 +47,7 @@ def setup_grass(
             text=True,
         )
         out, err = proc.communicate("exit\n")
-        
+
         if proc.returncode != 0:
             print("\n!!! GRASS LOCATION CREATION FAILED !!!")
             print(f"Command: {' '.join(cmd)}")
@@ -57,7 +57,7 @@ def setup_grass(
             print("\n--- GRASS STDERR ---")
             print(err)
             print("--------------------------------------\n")
-            
+
             raise subprocess.CalledProcessError(
                 proc.returncode,
                 cmd,

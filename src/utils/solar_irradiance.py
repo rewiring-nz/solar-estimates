@@ -1,3 +1,5 @@
+import subprocess
+
 from .linke import linke_by_day
 
 
@@ -5,8 +7,7 @@ def calculate_solar_irradiance(
     dsm: str, grass_output: str, aspect, slope, day: int, step: float, grass_module
 ):
     """Calculate solar irradiance for a given day using the r.sun module."""
-
-    r_sun = grass_module(
+    grass_module(
         "r.sun",
         elevation=dsm,
         aspect=aspect,
@@ -17,73 +18,46 @@ def calculate_solar_irradiance(
         nprocs=16,
         glob_rad=grass_output,
         overwrite=True,
-    )
-    r_sun.run()
+    ).run()
 
     return grass_output
 
 
-def calculate_solar_irradiance_range(
-    dsm: str,
-    aspect,
-    slope,
-    days,
-    step: float,
-    grass_module,
-    export: bool = False,
-    cleanup: bool = True,
-):
-    """Calculate solar irradiance over a range of days, and sum the rasters.
-    Optionally cleans up individual day rasters from GRASS' database with
-    cleanup=True, and exports the summed raster as a GeoTIFF with export=True."""
-
-    # Loop through day range, keeping track of generated rasters
-    day_rasters = []
-    for day in days:
-        day_map = calculate_solar_irradiance(
-            dsm=dsm,
-            grass_output=f"{dsm}_solar_irradiance_day{day}",
-            aspect=aspect,
-            slope=slope,
-            day=day,
-            step=step,
-            grass_module=grass_module,
-        )
-        day_rasters.append(day_map)
-
-    # Comma-delimited as the format used by most GRASS modules
-    rasters = ",".join(day_rasters)
-
-    # Sum rasters together
-    r_series = grass_module(
-        "r.series",
-        input=rasters,
-        output=f"{dsm}_solar_irradiance",
-        method="sum",
-        overwrite=True,
+def _get_raster_min_max(raster_name):
+    """Get min and max values from a raster using r.univar."""
+    result = subprocess.run(
+        ["r.univar", "-g", raster_name],
+        capture_output=True,
+        text=True,
+        check=True,
     )
-    r_series.run()
 
-    # Export the summed raster as a GeoTIFF
-    if export:
-        r_out = grass_module(
-            "r.out.gdal",
-            input=f"{dsm}_solar_irradiance",
-            output=f"{dsm}_solar_irradiance.tif",
-            format="GTiff",
-            createopt="TFW=YES,COMPRESS=LZW",
-            overwrite=True,
-        )
-        r_out.run()
+    stats = {}
+    for line in result.stdout.strip().split("\n"):
+        if "=" in line:
+            key, value = line.split("=", 1)
+            stats[key] = value
 
-    # Clean up day rasters
-    if cleanup:
-        g_remove = grass_module(
-            "g.remove", type="raster", name=rasters, flags="f"
-        )  # force without prompt
-        g_remove.run()
+    return float(stats["min"]), float(stats["max"])
 
-    return f"{dsm}_solar_irradiance"
+
+def _normalize_raster(input_raster, output_raster, grass_module):
+    """Normalize a raster to 0-1 range using min-max scaling."""
+    min_val, max_val = _get_raster_min_max(input_raster)
+
+    mapcalc_expr = (
+        f"{output_raster} = "
+        f"float({input_raster} - {min_val}) / "
+        f"float({max_val} - {min_val})"
+    )
+
+    grass_module(
+        "r.mapcalc",
+        expression=mapcalc_expr,
+        overwrite=True,
+    ).run()
+
+    return output_raster
 
 
 def calculate_solar_irradiance_interpolated(
@@ -96,12 +70,8 @@ def calculate_solar_irradiance_interpolated(
     export: bool = False,
     cleanup: bool = True,
 ):
-    """
-    Interpolate solar irradiance rasters between key_days.
-    Optionally cleans up individual day rasters from GRASS' database with
-    cleanup=True, and exports the summed raster as a GeoTIFF with export=True.
-    """
-    # Calculate irradiance for each key day and store rasters
+    """Interpolate solar irradiance between key days and return per-day and summed rasters."""
+    # Calculate irradiance for each key day
     key_day_rasters = []
     for day in key_days:
         day_map = calculate_solar_irradiance(
@@ -115,16 +85,11 @@ def calculate_solar_irradiance_interpolated(
         )
         key_day_rasters.append(day_map)
 
-    # Determine interpolation range from min to max key day
+    # Interpolate to all days in range
     interp_days = list(range(min(key_days), max(key_days) + 1))
-
-    # Generate output raster names and sampling positions for each day
     interp_rasters = [f"{dsm}_solar_irradiance_interp_day{day}" for day in interp_days]
 
-    # Use r.series.interp to interpolate between key days
-    # datapos: positions of calculated raster data (key days)
-    # samplingpos: positions to interpolate (all days in range)
-    r_series_interp = grass_module(
+    grass_module(
         "r.series.interp",
         input=",".join(key_day_rasters),
         datapos=key_days,
@@ -132,38 +97,48 @@ def calculate_solar_irradiance_interpolated(
         samplingpos=interp_days,
         method="linear",
         overwrite=True,
-    )
-    r_series_interp.run()
+    ).run()
+
+    day_irradiance_rasters = {day: interp_rasters[i] for i, day in enumerate(interp_days)}
 
     # Sum all interpolated rasters
-    output_name = f"{dsm}_solar_irradiance_interp"
-    r_series = grass_module(
+    summed_irradiance = f"{dsm}_solar_irradiance_interp"
+    grass_module(
         "r.series",
         input=",".join(interp_rasters),
-        output=output_name,
+        output=summed_irradiance,
         method="sum",
         overwrite=True,
-    )
-    r_series.run()
+    ).run()
 
-    # Export the raster as a GeoTIFF
     if export:
-        r_out = grass_module(
+        grass_module(
             "r.out.gdal",
-            input=output_name,
-            output=f"{output_name}.tif",
+            input=summed_irradiance,
+            output=f"{summed_irradiance}.tif",
             format="GTiff",
             createopt="TFW=YES,COMPRESS=LZW",
             overwrite=True,
-        )
-        r_out.run()
+        ).run()
 
-    # Clean up intermediate rasters
     if cleanup:
-        all_rasters = key_day_rasters + interp_rasters
-        g_remove = grass_module(
-            "g.remove", type="raster", name=",".join(all_rasters), flags="f"
-        )
-        g_remove.run()
+        grass_module(
+            "g.remove",
+            type="raster",
+            name=",".join(key_day_rasters),
+            flags="f",
+        ).run()
 
-    return output_name
+    return day_irradiance_rasters, summed_irradiance
+
+
+def calculate_solar_coefficients(day_irradiance_rasters: dict, dsm: str, grass_module):
+    """Calculate normalized (0-1) solar coefficients for each day's irradiance raster."""
+    day_coefficient_rasters = {}
+
+    for day, irradiance_raster in day_irradiance_rasters.items():
+        coefficient_raster = f"{dsm}_solar_coefficient_day{day}"
+        _normalize_raster(irradiance_raster, coefficient_raster, grass_module)
+        day_coefficient_rasters[day] = coefficient_raster
+
+    return day_coefficient_rasters
