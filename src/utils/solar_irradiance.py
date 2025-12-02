@@ -246,7 +246,6 @@ def calculate_solar_irradiance_interpolated(
 
     return day_irradiance_rasters, summed_irradiance
 
-
 def calculate_solar_coefficients(
     day_irradiance_rasters: dict[int, str],
     dsm: str,
