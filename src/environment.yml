@@ -1,9 +1,0 @@
-name: solar-estimates
-channels:
-  - conda-forge
-  - defaults
-dependencies:
-  - pip
-  - gdal
-  - scipy
-  - ruff

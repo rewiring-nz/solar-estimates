@@ -18,6 +18,30 @@ __pycache__/
 *.shp
 *.shx
 
+# Exclude data directory
+!src/data/**/*.tif
+!src/data/**/*.tfw
+!src/data/**/*.vrt
+!src/data/**/*.xml
+!src/data/**/*.aux
+!src/data/**/*.aux.aux.xml
+!src/data/**/*.tif.aux.xml
+
+!src/data/**/*.cpg
+!src/data/**/*.dbf
+!src/data/**/*.prj
+!src/data/**/*.shp
+!src/data/**/*.shx
+
 # Other data formats
 *.csv
 *.gpkg
+*.DS_Store
+
+# Dependency manager agnostic
+*.lock
+
+# Package manager things
+build/
+.venv/
+*.egg-info
