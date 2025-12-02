@@ -1,7 +1,7 @@
 # --- Builder for GRASS GIS and Python dependencies ---
 
 # Use the robust Ubuntu Noble (24.04 LTS) base image for UbuntuGIS compatibility.
-FROM ubuntu:noble AS builder 
+FROM ubuntu:noble AS builder
 
 # Set environment for non-interactive installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -40,8 +40,8 @@ RUN apt-get update \
 
 # --- PYTHON APPLICATION SETUP ---
 
-# Set the working directory inside the container
-WORKDIR /app
+# Set the working directory inside the container to /app/src, matching the local structure
+WORKDIR /app/src
 
 # Set Python 3.12 as the default for the container's 'python3' command
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
@@ -53,9 +53,9 @@ RUN python3 -m venv /opt/venv
 # All subsequent RUN commands will now use the venv's python and pip
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy the Python project files
-# This copies everything from the host's project root (where Dockerfile is) to /app
-COPY . /app/
+# Copy the contents of the local 'src/' directory to the working directory '/app/src'
+# This ensures pyproject.toml is in the WORKDIR.
+COPY src/ .
 
 # Install Python dependencies from pyproject.toml using the venv's pip
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
