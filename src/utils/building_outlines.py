@@ -58,7 +58,7 @@ def remove_masks(grass_module: Any) -> None:
     This helper attempts to reset raster masking by calling `r.mask -r`.
 
     Args:
-        grass_module: The GRASS Module-like callable.
+        grass_module: The GRASS Python scripting Module class.
 
     Returns:
         None
