@@ -22,11 +22,12 @@ from utils.dsm import (
 )
 from utils.grass_utils import setup_grass
 from utils.solar_irradiance import (
-    calculate_solar_coefficient,
+    calculate_solar_coefficients,
     calculate_solar_irradiance_interpolated,
 )
 from utils.stats import create_stats
 from utils.wrf import (
+    calculate_wrf_adjusted_per_day,
     calculate_wrf_on_buildings,
     cleanup_wrf_intermediates,
     process_wrf_for_grass,
@@ -97,7 +98,7 @@ def parse_args():
         type=int,
         nargs="+",
         default=[1, 7],
-        help="Day numbers for solar irradiance interpolation (default: first week of January)",
+        help="Day numbers for solar irradiance calculation (default: 1, 7)",
     )
 
     parser.add_argument(
@@ -185,8 +186,8 @@ def main():
         dsm=virtual_raster, grass_module=Module
     )
 
-    print(f"Calculating solar irradiance for days: {args.key_days}")
-    solar_irradiance = calculate_solar_irradiance_interpolated(
+    print(f"Calculating solar irradiance (interpolated) for days: {args.key_days}")
+    day_irradiance_rasters, solar_irradiance = calculate_solar_irradiance_interpolated(
         dsm=virtual_raster,
         aspect=aspect,
         slope=slope,
@@ -196,16 +197,6 @@ def main():
         export=args.export_rasters,
         cleanup=True,
     )
-
-    # Calculate solar coefficient (needed for WRF adjustment)
-    solar_coefficient = None
-    if args.wrf_file:
-        print("Calculating solar coefficient...")
-        solar_coefficient = calculate_solar_coefficient(
-            irradiance_raster=solar_irradiance,
-            grass_module=Module,
-            export=args.export_rasters,
-        )
 
     print("Loading building outlines...")
     outlines = load_building_outlines(
@@ -230,8 +221,17 @@ def main():
     )
 
     # WRF processing (optional)
+    day_coefficient_rasters = None
     wrf_adjusted = None
+
     if args.wrf_file:
+        print("Calculating per-day solar coefficients...")
+        day_coefficient_rasters = calculate_solar_coefficients(
+            day_irradiance_rasters=day_irradiance_rasters,
+            dsm=virtual_raster,
+            grass_module=Module,
+        )
+
         print(f"Processing WRF data from: {args.wrf_file}")
         wrf_day_rasters, wrf_summed = process_wrf_for_grass(
             nc_file_path=args.wrf_file,
@@ -244,22 +244,50 @@ def main():
             print_diagnostics=False,
         )
 
+        # Apply per-day coefficients to WRF rasters
+        print("Applying per-day solar coefficients to WRF data...")
+        adjusted_day_rasters = calculate_wrf_adjusted_per_day(
+            wrf_day_rasters=wrf_day_rasters,
+            coefficient_rasters=day_coefficient_rasters,
+            grass_module=Module,
+            output_prefix="wrf_adjusted",
+        )
+
+        # Sum the per-day adjusted rasters
+        print("Summing adjusted WRF rasters...")
+        adjusted_raster_list = list(adjusted_day_rasters.values())
+        wrf_adjusted_total = "wrf_adjusted_total"
+        Module(
+            "r.series",
+            input=",".join(adjusted_raster_list),
+            output=wrf_adjusted_total,
+            method="sum",
+            overwrite=True,
+        ).run()
+
+        # Apply building mask to get WRF on buildings
         print("Calculating WRF on buildings...")
-        wrf_on_buildings = calculate_wrf_on_buildings(
-            wrf_summed_raster=wrf_summed,
+        wrf_adjusted = calculate_wrf_on_buildings(
+            wrf_summed_raster=wrf_adjusted_total,
             building_vector=outlines,
-            output_name="wrf_on_buildings",
+            output_name="wrf_on_buildings_adjusted",
             grass_module=Module,
         )
 
-        # Clean up intermediate WRF rasters
+        # Clean up intermediate rasters
         cleanup_wrf_intermediates(wrf_day_rasters, wrf_summed, Module)
-
-        # Adjust WRF values by solar coefficient
-        print("Adjusting WRF values by solar coefficient...")
-        wrf_adjusted = "wrf_on_buildings_adjusted"
-        mapcalc_expr = f"{wrf_adjusted} = {wrf_on_buildings} * {solar_coefficient}"
-        Module("r.mapcalc", expression=mapcalc_expr, overwrite=True).run()
+        Module(
+            "g.remove",
+            type="raster",
+            name=",".join(adjusted_raster_list),
+            flags="f",
+        ).run()
+        Module(
+            "g.remove",
+            type="raster",
+            name=wrf_adjusted_total,
+            flags="f",
+        ).run()
 
         # Export the adjusted WRF raster if requested
         if args.export_rasters:
@@ -272,6 +300,23 @@ def main():
                 createopt="TFW=YES,COMPRESS=LZW",
                 overwrite=True,
             ).run()
+
+    # Clean up per-day irradiance and coefficient rasters
+    print("Cleaning up intermediate rasters...")
+    Module(
+        "g.remove",
+        type="raster",
+        name=",".join(day_irradiance_rasters.values()),
+        flags="f",
+    ).run()
+
+    if day_coefficient_rasters:
+        Module(
+            "g.remove",
+            type="raster",
+            name=",".join(day_coefficient_rasters.values()),
+            flags="f",
+        ).run()
 
     if args.export_rasters:
         print("Exporting final raster...")
