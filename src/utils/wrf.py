@@ -290,7 +290,7 @@ def calculate_wrf_on_buildings(
         The name of the created building-only raster (`output_name`).
     """
     # Apply building mask to restrict operations to building footprints
-    apply_building_mask(building_vector, output_name="building_mask", grass_module=grass_module)
+    apply_building_mask(building_vector, grass_module=grass_module)
 
     r_mapcalc = grass_module(
         "r.mapcalc",
@@ -372,7 +372,7 @@ def process_wrf_for_grass(
 
     # Reproject to the target CRS if requested
     if target_crs:
-        wrf_ds = wrf_dataset.rio.reproject(target_crs)
+        wrf_ds = wrf_ds.rio.reproject(target_crs)
 
     # If days is not provided infer the full range from dataset dayofyear values
     if days is None:

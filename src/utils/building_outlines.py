@@ -92,7 +92,7 @@ def calculate_outline_raster(
         The GRASS raster name.
     """
     # Apply mask using the building vector
-    apply_building_mask(building_vector, output_name="building_mask", grass_module=grass_module)
+    apply_building_mask(building_vector, grass_module=grass_module)
 
     # Copy values from the source raster into the masked output raster
     r_mapcalc = grass_module(
