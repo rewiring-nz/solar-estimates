@@ -1,3 +1,7 @@
+# Dockerfile: Sets up a multi-stage build environment for a Python-based geospatial pipeline.
+# Installs GRASS GIS, GDAL, Python 3.12, and other dependencies on Ubuntu Noble (24.04 LTS).
+# Uses a builder stage to compile and install application-specific dependencies.
+
 # --- Builder for GRASS GIS and Python dependencies ---
 
 # Use the robust Ubuntu Noble (24.04 LTS) base image for UbuntuGIS compatibility.
