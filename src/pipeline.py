@@ -195,7 +195,6 @@ def main():
         step=args.time_step,
         grass_module=Module,
         export=args.export_rasters,
-        cleanup=True,
     )
 
     print("Loading building outlines...")
