@@ -16,6 +16,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+    
+    platform: linux/amd64
     
     container_name: nz_solar_pipeline_dev
     
