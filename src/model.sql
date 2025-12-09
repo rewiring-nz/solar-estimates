@@ -1,6 +1,3 @@
-INSTALL spatial;
-LOAD spatial;
-
 CREATE OR REPLACE TABLE MthHrMatrix (
     id INTEGER PRIMARY KEY,
     description VARCHAR
