@@ -1,0 +1,51 @@
+# Configures a Docker Compose setup for the solar pipeline project.
+# Sets up a containerized application with the necessary dependencies,
+# mounts local directories for seamless development, and persists the
+# GRASS database using a named volume.
+
+# Usage:
+# 1. Ensure Docker (20.10+) and Docker Compose (v2.0+) are installed on your system.
+# 2. Navigate to the directory containing this file.
+# 3. Run `docker compose up` to build and start the container.
+# 4. Use `docker-compose down` to stop and remove the container.
+
+# Define the services (containers) you want to run
+services:
+  solar_pipeline:
+    # Build context is the current directory, using the Dockerfile
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+    
+    platform: linux/amd64
+    
+    container_name: nz_solar_pipeline_dev
+    
+    # Mount local directories for seamless development and persistence
+    volumes:
+      # Mount the entire project root. Changes to your code are instantly reflected.
+      # Local root (where docker-compose.yml is) -> Container's /app
+      - .:/app
+      
+      # Persist the GRASS database (grassdata) using a Docker named volume.
+      # GRASS data is now expected in /app/src/grassdata
+      - grass_db:/app/src/grassdata
+      
+    # The command to run your pipeline.py for testing
+    # Paths are now relative to the container's WORKDIR: /app/src
+    command: 
+      [
+        "--dsm-glob", "data/shotover_country/*.tif",
+        "--building-dir", "data/queenstown_lakes_building_outlines",
+        "--area-name", "shotover_country",
+        "--building-layer-name", "queenstown_lakes_buildings",
+        # The GRASS base path is a system path, not relative to the project.
+        "--grass-base", "/usr/lib/grass84",
+      ]
+      
+# Define the named volume for the GRASS database
+volumes:
+  grass_db:
+    driver: local
