@@ -67,6 +67,19 @@ source .venv/bin/activate
 pip install .
 ```
 
+### Installing QGIS (optional)
+
+This is a GUI for exploring the geopackage data that is created by our pipeline, including running queries over it like you would with SQL. GRASS can visualise geopackages as well, but QGIS is a bit more user friendly and has more functionality.
+
+1. [Download QGIS from the website]([url](https://qgis.org/download/))
+1. Download the Shotover Country winter geopackage file from [this Google Drive folder](https://drive.google.com/drive/folders/18qfvIaRy2X5fYjm-V0amQPvnxvDS_CAS).
+1. Open QGIS and go to Layer > Data Source Manager. This will open a dialog box.
+1. Select the `Geopackage` option in the sidebar of the dialog box.
+1. Under `Connections` click `New`. Select the `.gpkg` file you downloaded from Google Drive and click `Add`. This will add the building outlines to your QGIS viewer window.
+1. In the main window browser sidebar, you can select `XYZ Tiles > OpenStreetMap`, right click and `Add Layer to Project`. Drag this layer under the `building_stats` layer to show the building outlines overlaid on top of the OpenStreetMap view.
+
+[More examples of how to use to calculate and visualise things to be added!]
+
 ## Example usage
 
 This repo includes some example data in the `data/` folder. You can use these to try out the pipeline.
