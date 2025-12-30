@@ -4,7 +4,7 @@ This section explains how tech-savvy advanced users can build solar-potential da
 
 ## Prior knowledge
 
-* You should know how to run applications from the command line, as our ```pipeline.py``` script runs from an Ubuntu bash terminal.  
+* You should know how to run applications from the command line, as our ```pipeline.py``` script runs from a terminal command line.  
 * You should be familiar with [Docker](https://www.docker.com/), as we run our applications within the Docker framework.
 
 ## Key concepts
