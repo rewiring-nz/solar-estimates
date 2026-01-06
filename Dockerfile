@@ -58,12 +58,12 @@ RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy the contents of the local 'src/' directory to the working directory '/app/src'
-# This ensures pyproject.toml is in the WORKDIR.
 COPY src/ .
 
-# Install Python dependencies from pyproject.toml using the venv's pip
+# Install Python dependencies AND documentation tools using the venv's pip
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir .
+    && pip install --no-cache-dir . \
+    && pip install --no-cache-dir mkdocs-material mkdocstrings[python]
 
 # Define the entry point/command for the main pipeline script
 ENTRYPOINT ["/opt/venv/bin/python", "/app/src/pipeline.py"]

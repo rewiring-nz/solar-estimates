@@ -11,6 +11,7 @@
 
 # Define the services (containers) you want to run
 services:
+  # Main analysis service
   solar_pipeline:
     # Build context is the current directory, using the Dockerfile
     build:
@@ -44,8 +45,25 @@ services:
         # The GRASS base path is a system path, not relative to the project.
         "--grass-base", "/usr/lib/grass84",
       ]
-      
-# Define the named volume for the GRASS database
+
+  # Documentation service for live-previewing the web docs
+  docs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nz_solar_docs_dev
+    # Map the default MkDocs port to your local machine
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    # Set the working directory to the project root where mkdocs.yml lives
+    working_dir: /app
+    # Override the ENTRYPOINT to run the MkDocs development server
+    entrypoint: ["/opt/venv/bin/mkdocs"]
+    command: ["serve", "-a", "0.0.0.0:8000"]
+
+# Define named volumes for persistent data storage
 volumes:
   grass_db:
     driver: local

@@ -3,6 +3,7 @@
 This section concisely touches on key design concepts for our ```solar estimates``` project. 
 
 We aim to keep this document **concise** and **timeless**, so that it is:
+
 * Quick to read.
 * Easy to absorb.
 * Easy to maintain.

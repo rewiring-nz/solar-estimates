@@ -1,0 +1,27 @@
+site_name: Solar Estimates
+theme:
+  name: material
+features:
+    - content.code.copy
+
+markdown_extensions:
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: ["/app/src"]  # Points to your /app/src directory inside the container
+
+nav:
+  - Home: index.md
+  - About: about.md
+  - Advanced User Guide: user.md
+  - Developer Guide: developer.md
+  - Reference: reference.md
+  - Downloads: downloads.md
