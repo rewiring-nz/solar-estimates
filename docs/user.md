@@ -82,7 +82,7 @@ cd solar-estimates/
 If you haven’t already installed Docker, follow the instructions for your operating system:
 
 * **Windows or Mac:** Follow the official [Docker Desktop installation guide](https://docs.docker.com/get-started/get-docker/).  
-* **Ubuntu or Debian Linux:** You can use our provided setup script:
+* **Ubuntu or Debian Linux:** You can use our setup script:
 
 ```bash
 # Navigate to the scripts directory and run the installer 
@@ -96,7 +96,7 @@ With Docker ready, you can now launch the processing pipeline. This process down
 
 ```bash
 # Ensure you are in the project root directory  
-docker compose up
+docker compose up pipeline
 ```
 You will see logs in your terminal as the `pipeline.sh` script executes.
 

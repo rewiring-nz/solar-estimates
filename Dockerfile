@@ -64,6 +64,3 @@ COPY src/ .
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
     && pip install --no-cache-dir . \
     && pip install --no-cache-dir mkdocs-material mkdocstrings[python]
-
-# Define the entry point/command for the main pipeline script
-ENTRYPOINT ["/opt/venv/bin/python", "/app/src/pipeline.py"]
