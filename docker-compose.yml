@@ -30,6 +30,7 @@ services:
       # Mount the entire project root. Changes to your code are instantly reflected.
       # Local root (where docker-compose.yml is) -> Container's /app
       - .:/app
+      - ./LICENSE.txt:/app/docs/license.md
       
       # Persist the GRASS database (grassdata) using a Docker named volume.
       # GRASS data is now expected in /app/src/grassdata

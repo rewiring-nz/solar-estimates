@@ -1,11 +1,21 @@
 site_name: Solar Estimates
+
 theme:
   name: material
-features:
+  features:
+    - navigation.tabs          # Horizontal top bar links
+    - navigation.tabs.sticky   # Keeps sub-navigation visible at the top
+    - navigation.sections      # Groups sidebar items into clear sections
+    - navigation.expand        # Automatically expands the active section
+    - navigation.indexes       # Allows top-level titles to be clickable pages
+    - toc.integrate            # TOC included in the left sidebar
     - content.code.copy
 
 markdown_extensions:
-  - pymdownx.superfences:
+  - toc:
+      permalink: true          # Adds clickable anchors to headings
+      toc_depth: 2             # How many heading levels to show in the sidebar
+  - pymdownx.superfences:      # Enables mermaid diagrams
       custom_fences:
         - name: mermaid
           class: mermaid
@@ -16,12 +26,16 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: ["/app/src"]  # Points to your /app/src directory inside the container
+          paths: ["/app/src"]  # Points to the /app/src directory inside the container
 
 nav:
-  - Home: index.md
-  - About: about.md
-  - Advanced User Guide: user.md
-  - Developer Guide: developer.md
-  - Reference: reference.md
+  - Home:
+    - Home: index.md
+    - About: about.md
+    - License: LICENSE.md
+  - User Guide:
+    - Advanced User Guide: user.md
+  - Developer Guide:
+    - Developer Guide: developer.md
+    - Reference: reference.md
   - Downloads: downloads.md

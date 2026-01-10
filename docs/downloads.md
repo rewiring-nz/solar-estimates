@@ -36,4 +36,4 @@ A tagged software release is on our roadmap.
 
 | Date | Version | Description |
 | :---- | :---- | :---- |
-| 2025-01-30 | 0.0.1 | Proof of concept.<br>Provides map layers for annual solar potential for: 1\. Rooftops. 2\. 1x1m grid.<br>Considers rooftop slope and direction.<br>Shading calculated from 1x1 grid Digital Surface Model, considers distant mountains and local (trees).<br>Estimates used for other parameters, such as weather.<br>Pipeline script runs in docker.<br>Region limited to a small suburb in Shotover County, New Zealand. |
+| 2026-01-30 | 0.0.1 | Proof of concept.<br>Provides map layers for annual solar potential for: 1\. Rooftops. 2\. 1x1m grid.<br>Considers rooftop slope and direction.<br>Shading calculated from 1x1 grid Digital Surface Model, considers distant mountains and local (trees).<br>Estimates used for other parameters, such as weather.<br>Pipeline script runs in docker.<br>Region limited to a small suburb in Shotover County, New Zealand. |
