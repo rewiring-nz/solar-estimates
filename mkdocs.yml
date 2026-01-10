@@ -33,9 +33,13 @@ nav:
     - Home: index.md
     - About: about.md
     - License: LICENSE.md
+    - Contact: contact.md
   - User Guide:
-    - Advanced User Guide: user.md
+    - User Guide: user/index.md
+    - Key Concepts: user/concepts.md
+    - Pipeline Quickstart: user/pipeline-quickstart.md
   - Developer Guide:
-    - Developer Guide: developer.md
-    - Reference: reference.md
+    - Developer Guide: developer/index.md
+    - Design: developer/design.md
+    - API Reference: developer/reference.md
   - Downloads: downloads.md
