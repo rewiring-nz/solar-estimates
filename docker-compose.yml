@@ -6,13 +6,15 @@
 # Usage:
 # 1. Ensure Docker (20.10+) and Docker Compose (v2.0+) are installed on your system.
 # 2. Navigate to the directory containing this file.
-# 3. Run `docker compose up` to build and start the container.
-# 4. Use `docker-compose down` to stop and remove the container.
+# 3. Run `docker compose up pipeline` to build and start the container.
+# 4. Use `docker compose down` to stop and remove the container.
+# 5. Run `docker compose up docs` to start the doc server at http://0.0.0.0:8000/ .
+# 6. Type ^C to stop.
 
 # Define the services (containers) you want to run
 services:
-  solar_pipeline:
-    # Build context is the current directory, using the Dockerfile
+  # Run this with: `docker compose up pipeline`
+  pipeline:
     build:
       context: .
       dockerfile: Dockerfile
@@ -21,31 +23,45 @@ services:
     
     platform: linux/amd64
     
-    container_name: nz_solar_pipeline_dev
+    container_name: nz_solar_pipeline
     
     # Mount local directories for seamless development and persistence
     volumes:
       # Mount the entire project root. Changes to your code are instantly reflected.
       # Local root (where docker-compose.yml is) -> Container's /app
       - .:/app
+      - ./LICENSE.txt:/app/docs/license.md
       
       # Persist the GRASS database (grassdata) using a Docker named volume.
       # GRASS data is now expected in /app/src/grassdata
       - grass_db:/app/src/grassdata
-      
-    # The command to run your pipeline.py for testing
-    # Paths are now relative to the container's WORKDIR: /app/src
-    command: 
-      [
-        "--dsm-glob", "data/shotover_country/*.tif",
-        "--building-dir", "data/queenstown_lakes_building_outlines",
-        "--area-name", "shotover_country",
-        "--building-layer-name", "queenstown_lakes_buildings",
-        # The GRASS base path is a system path, not relative to the project.
-        "--grass-base", "/usr/lib/grass84",
-      ]
-      
-# Define the named volume for the GRASS database
+    # We explicitly define the command here so 'up' runs it immediately.
+    # Paths are relative to the WORKDIR /app/src defined in the Dockerfile.
+    command: >
+      /opt/venv/bin/python /app/src/pipeline.py
+      --dsm-glob "data/shotover_country/*.tif"
+      --building-dir "data/queenstown_lakes_building_outlines"
+      --area-name "shotover_country"
+      --building-layer-name "queenstown_lakes_buildings"
+      --grass-base "/usr/lib/grass84"
+
+  # Run this with: docker compose up docs
+  docs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nz_solar_docs
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    # Set the working directory to the project root where mkdocs.yml lives
+    working_dir: /app
+    # Override the pipeline entrypoint to use mkdocs from the virtual env
+    entrypoint: ["/opt/venv/bin/mkdocs"]
+    command: ["serve", "-a", "0.0.0.0:8000"]
+
+# Define named volumes for persistent data storage
 volumes:
   grass_db:
     driver: local
