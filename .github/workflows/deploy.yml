@@ -1,0 +1,56 @@
+# GitHub Actions Workflow: Deploy MkDocs to GitHub Pages
+# ------------------------------------------------------
+# PURPOSE:
+#   This workflow automates the building and publishing of the Solar Estimates 
+#   documentation. It converts Markdown files and Python docstrings into a 
+#   searchable HTML website.
+#
+# ACCESSING THE WEBSITE:
+#   Once deployed, the documentation is accessible at:
+#   https://rewiring-nz.github.io/solar-estimates/
+#
+# SOURCE DOCUMENTATION LOCATION:
+#   - Markdown content: /docs/ directory
+#   - Configuration: mkdocs.yml (root)
+#   - API Reference: Generated from docstrings in /app/src/
+#
+# PRE-COMMIT BEST PRACTICE:
+#   Before pushing changes to GitHub, you should verify the documentation 
+#   locally using the Docker environment to ensure links and formatting are correct:
+#   Run: `docker compose up docs`
+#   View at: http://localhost:8000
+#
+# TRIGGER:
+#   Automatically initiated on every 'git push' to the 'main' branch.
+# ------------------------------------------------------
+
+name: Publish Documentation
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mkdocs-material mkdocstrings[python]
+
+      - name: Deploy to GitHub Pages
+        # This builds the site and pushes it to the 'gh-pages' branch
+        run: mkdocs gh-deploy --force
