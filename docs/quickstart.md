@@ -1,8 +1,8 @@
 # Developer Quickstart
 
-This document describes how a developer can get the New Zealand Solar Map tools running in a development environment.
+_This document describes how a developer can get the New Zealand Solar Map tools running in a development environment._
 
-Last update: 23 Nov 2025
+**Last updated:** Jan 2026
 
 ## Context
 

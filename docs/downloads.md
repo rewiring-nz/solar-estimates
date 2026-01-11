@@ -1,5 +1,7 @@
 # Downloads
 
+**Last updated:** Jan 2026
+
 ## Webmap
 
 View our latest maps in our [webmap browser](https://felt.com/map/solar-estimates-data-0-0-1-hrZt5lhuQXySjcQGbx9CwzA?loc=-45.00495,168.76761,14.69z).
@@ -14,7 +16,6 @@ Our spatial datasets can be downloaded from our [Releases](https://drive.google.
   * Just the attributes, in CSV format  
 * shotover\_country\_merged-0.0.1.zip spatial diff and vrt.  
   * 1x1 meter grid showing solar potential of each grid
-
 
 You can download the maps, and then view and analyse from your favourite desktop GIS application. We like the free and powerful [QGIS](https://qgis.org/).
 

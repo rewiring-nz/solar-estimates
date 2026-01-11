@@ -8,7 +8,7 @@ We aim to keep this document **concise** and **timeless**, so that it is:
 * Easy to absorb.
 * Easy to maintain.
 
-**Last updated:** December 2025
+**Last updated:** Jan 2026
 
 ## High level architecture
 
