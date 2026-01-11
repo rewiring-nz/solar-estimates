@@ -1,27 +1,10 @@
-# GitHub Actions Workflow: Deploy MkDocs to GitHub Pages
+# GitHub Actions Workflow: Deploy MkDocs to GitHub Pages (Mocked Version)
 # ------------------------------------------------------
 # PURPOSE:
-#   This workflow automates the building and publishing of the Solar Estimates 
-#   documentation. It converts Markdown files and Python docstrings into a 
-#   searchable HTML website.
-#
-# ACCESSING THE WEBSITE:
-#   Once deployed, the documentation is accessible at:
-#   https://rewiring-nz.github.io/solar-estimates/
-#
-# SOURCE DOCUMENTATION LOCATION:
-#   - Markdown content: /docs/ directory
-#   - Configuration: mkdocs.yml (root)
-#   - API Reference: Generated from docstrings in /src/
-#
-# PRE-COMMIT BEST PRACTICE:
-#   Before pushing changes to GitHub, verify the documentation 
-#   locally using the Docker environment:
-#   Run: `docker compose up docs`
-#   View at: http://localhost:8000
-#
-# TRIGGER:
-#   Automatically initiated on every 'git push' to the 'main' branch.
+#   This workflow automates the documentation publishing using "Mocking".
+#   It bypasses the installation of heavy geospatial libraries (GDAL/GRASS)
+#   by pretending they are present, allowing the documentation to build 
+#   faster and without system-level dependencies.
 # ------------------------------------------------------
 
 name: Publish Documentation
@@ -46,12 +29,14 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install dependencies
+      - name: Install Documentation Tools
+        # We only install the tools needed to build the site.
         run: |
           python -m pip install --upgrade pip
-          pip install mkdocs-material mkdocstrings[python] ./src
-      - name: Prepare Documentation Files
-        run: cp LICENSE.txt docs/license.md
+          pip install mkdocs-material mkdocstrings[python]
+
+#      - name: Prepare Documentation Files
+#        run: cp LICENSE.txt docs/license.md
 
       - name: Deploy to GitHub Pages
         run: mkdocs gh-deploy --force

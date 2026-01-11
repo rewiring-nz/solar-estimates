@@ -29,12 +29,20 @@ plugins:
       handlers:
         python:
           paths: ["src"] 
-
+          options:
+            import_bypass:
+              - gdal
+              - ogr
+              - osr
+              - rioxarray
+              - h5netcdf
+              - grass.script
+              - grass
 nav:
   - Home:
     - Home: index.md
     - About: about.md
-    - License: license.md 
+#    - License: license.md 
     - Contact: contact.md
   - User Guide:
     - User Guide: user/index.md
