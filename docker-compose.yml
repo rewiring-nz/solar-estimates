@@ -20,9 +20,7 @@ services:
       dockerfile: Dockerfile
       platforms:
         - linux/amd64
-    
     platform: linux/amd64
-    
     container_name: nz_solar_pipeline
     
     # Mount local directories for seamless development and persistence
@@ -45,7 +43,7 @@ services:
       --building-layer-name "queenstown_lakes_buildings"
       --grass-base "/usr/lib/grass84"
 
-  # Run this with: docker compose up docs
+  # Run this with: `docker compose up docs`
   docs:
     build:
       context: .

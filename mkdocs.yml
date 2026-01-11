@@ -1,4 +1,6 @@
 site_name: Solar Estimates
+# Change: Added site_url for better SEO and social sharing interoperability [cite: 2]
+site_url: https://rewiring-nz.github.io/solar-estimates/
 
 theme:
   name: material
@@ -26,13 +28,13 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: ["/app/src"]  # Points to the /app/src directory inside the container
+          paths: ["src"] 
 
 nav:
   - Home:
     - Home: index.md
     - About: about.md
-    - License: LICENSE.md
+    - License: license.md 
     - Contact: contact.md
   - User Guide:
     - User Guide: user/index.md
