@@ -1,5 +1,7 @@
 # Contributing
 
+**Last updated:** Jan 2026
+
 We are interested to hear from like-minded, tech savvy people tackling similar problems who are interested in collaborating with us.
 
 You can see our last task status and priorities in our [Kanban board](https://github.com/orgs/rewiring-nz/projects/3).

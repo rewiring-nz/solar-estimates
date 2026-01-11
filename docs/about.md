@@ -1,5 +1,7 @@
 # About
-This project will provide accurate and validated estimates of rooftop solar potential for almost every building in New Zealand, for use in tools such as interactive maps.
+_This project will provide accurate and validated estimates of rooftop solar potential for almost every building in New Zealand, for use in tools such as interactive maps._
+
+**Last updated:** Jan 2026
 
 ## Features
 
