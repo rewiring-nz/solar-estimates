@@ -48,6 +48,7 @@ If you haven’t already installed Docker, follow the instructions for your oper
 ### Option 2A: Windows or Mac:
 
 Follow the official [Docker Desktop installation guide](https://docs.docker.com/get-started/get-docker/).
+Then start docker by opening the application. In your taskbar you should see a little whale icon. When clicked, it should say `Docker Desktop is running`.
 
 ### Option 2B: Ubuntu or Debian Linux:
 
@@ -55,7 +56,7 @@ You can use our setup script:
 
 ```bash
 # Navigate to the scripts directory and run the installer 
-cd ~/scripts/
+cd scripts
 sudo ./setup-docker.sh
 ```
 
@@ -64,8 +65,7 @@ sudo ./setup-docker.sh
 With Docker ready, you can now launch the processing pipeline. This process downloads required images and runs the analysis, which may take several minutes.
 
 ```bash
-# Ensure you are in the project root directory
-cd ~/solar-estimates/
+# Ensure you are in the project root directory (i.e. go back up one level if you were in scripts/)
 
 docker compose up pipeline
 ```
@@ -73,12 +73,14 @@ You will see logs in your terminal as the `pipeline.sh` script executes.
 
 Once finished, your generated map layers will be available in the `src/` directory.
 
+You can view these map layers in a GUI like GRASS or QGIS.
+[To do: add instructions on what each file extension is for, and how to view in something like QGIS]
+
 ## 4: Stop and Clean Up
 
-When you are finished or want to stop the process, use the following command to shut down the Docker container:
+When you are finished or want to stop the process, use the following command to shut down the Docker container safely:
 
 ```bash
-# Stop the docker containers safely
-cd ~/solar-estimates/
+# Again, run this from your root directory
 docker compose down
 ```
