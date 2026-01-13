@@ -14,8 +14,8 @@ _View our maps in our [webmap browser](https://felt.com/map/solar-estimates-data
 * [Contact](contact.md)
 * [Downloads](downloads.md)
 * User Guide
-  * [Concepts](concepts.md]
-  * [Pipeline Quickstart](pipeline-quickstart.md]
+  * [Concepts](concepts.md)
+  * [Pipeline Quickstart](pipeline-quickstart.md)
 * Developer Guide
   * [Software Design](developer/design.md)
   * [API Reference](developer/reference.md)
