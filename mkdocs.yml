@@ -1,5 +1,5 @@
 site_name: Solar Estimates
-# Change: Added site_url for better SEO and social sharing interoperability [cite: 2]
+# Added site_url for better SEO and social sharing interoperability
 site_url: https://rewiring-nz.github.io/solar-estimates/
 
 theme:
@@ -22,6 +22,13 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+  # --- Github Flavored Markdown Extensions ---
+  - tables                     # Enables GFM-style tables
+  - pymdownx.magiclink         # Makes URLs and emails clickable automatically
+  - pymdownx.tasklist:         # Enables GFM-style checkboxes (- [ ] and - [x])
+      custom_checkbox: true
+  - pymdownx.tilde:            # Enables ~~strikethrough~~
+      smart_delete: true
 
 plugins:
   - search

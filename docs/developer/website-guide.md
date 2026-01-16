@@ -19,7 +19,7 @@ graph TD
     K(http://localhost:8080) ~~~ E
 
     subgraph Github Pages
-        E[github/workflows/deploy.yml] --> F
+        E[.github/workflows/deploy.yml] --> F
         D -- git push main --> F{GitHub
           Actions}
         F --> G(rewiring-nz.github.io/solar-estimates)
@@ -29,9 +29,11 @@ _Diagram: Doc toolchain workflow_
 
 ## Documentation Sources
 
-1. **Standard Content**: Guides and overviews are stored as Markdown in the /docs/ directory.  
-2. **Extracted Reference**: The "API Reference" section is automatically extracted from Python `docstrings` in /src/ using mkdocstrings.
-3. **Navigation**: If you add a *new* file, you must register its path in the nav section of `/mkdocs.yml`.
+| Source | Description |
+| :---- | :---- |
+| docs/\*.md | Standard documentation is in markdown. |
+| src/\*.py | The "API Reference" section is automatically extracted from Python docstrings. |
+| mkdocs.yml | Navigation and Style: New files need to be added to the nav section of this config. |
 
 ### Local Preview
 
