@@ -1,5 +1,5 @@
 
-# Quickstart: Setup analysis pipeline
+# Quickstart: Run pipeline script
 
 _This quickstart describes how you can install and run our pipeline script to create your first map layers, based on a default dataset and default parameters._
 
@@ -71,10 +71,13 @@ docker compose up pipeline
 ```
 You will see logs in your terminal as the `pipeline.sh` script executes.
 
-Once finished, your generated map layers will be available in the `src/` directory.
+Once finished, observe that you have created the following files in the `solar-estimates/src/` directory:
 
-You can view these map layers in a GUI like GRASS or QGIS.
-[To do: add instructions on what each file extension is for, and how to view in something like QGIS]
+| File | Layer Type |
+| :--- | :--- |
+| `shotover_country_building_stats.gpkg` | **GeoPackage:** A spatial database containing a layer of building polygons and their solar attributes. |
+| `shotover_country_merged.vrt` | **Virtual Raster:** A wrapper to multiple solar irradiation tiles. |
+| `shotover_country_building_stats.csv` | **Tabular Data:** A spreadsheet of building solar attributes. |
 
 ## 4: Stop and Clean Up
 
@@ -84,3 +87,5 @@ When you are finished or want to stop the process, use the following command to 
 # Again, run this from your root directory
 docker compose down
 ```
+## Next steps
+1. **View Map Layers:** Why don't you use QGIS to view the map layers you just created, by following our [QGIS Quickstart](qgis-quickstart.md).

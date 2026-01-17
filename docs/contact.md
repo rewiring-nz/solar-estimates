@@ -47,6 +47,7 @@ It is okay (and expected) to pause volunteering when higher priorities come up. 
 ### Organisations
 
 This project is supported by:
+
 * [Rewiring Aotearoa](https://www.rewiring.nz/)
 * [The University of Canterbury](https://www.canterbury.ac.nz/)
 * [Anthill Ltd](https://anthill.co.nz/)

@@ -6,7 +6,3 @@ We aim to keep this content **concise** and **timeless**, so that it is:
 * Quick to read.
 * Easy to absorb.
 * Easy to maintain.
-
-## Contents
-* [Software Design](design.md)
-* [API Reference](reference.md)

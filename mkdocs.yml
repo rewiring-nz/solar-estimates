@@ -29,6 +29,9 @@ markdown_extensions:
       custom_checkbox: true
   - pymdownx.tilde:            # Enables ~~strikethrough~~
       smart_delete: true
+  - pymdownx.details           # Enables collapsible blocks
+  - pymdownx.blocks.admonition # Enables GitHub-style [!TIP] blocks
+  - admonition                 # Eables !!! blocks
 
 plugins:
   - search
@@ -47,6 +50,7 @@ nav:
     - User Guide: user/index.md
     - Key Concepts: user/concepts.md
     - Pipeline Quickstart: user/pipeline-quickstart.md
+    - QGIS Quickstart: user/qgis-quickstart.md
   - Developer Guide:
     - Developer Guide: developer/index.md
     - Website Maintenance Guide: developer/website-guide.md
