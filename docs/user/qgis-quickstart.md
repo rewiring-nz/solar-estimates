@@ -8,18 +8,11 @@ We love [QGIS](https://qgis.org/). It is an intuitive, powerful, free, and open-
 
 ## 1. Setup environment and first map
 
-1. If you haven't done so already, follow our [Pipeline Quickstart](pipeline-quickstart.md) to setup your environment and create your first map layers.
-2. Observe that you have created the following files in the `solar-estimates/src/` directory:
-
-| File | Layer Type |
-| :--- | :--- |
-| `shotover_country_building_stats.gpkg` | **GeoPackage:** A spatial database containing a layer of building polygons and their solar attributes. |
-| `shotover_country_merged.vrt` | **Virtual Raster:** A wrapper to multiple solar irradiation tiles. |
-| `shotover_country_building_stats.csv` | **Tabular Data:** A spreadsheet of building solar attributes. |
+If you haven't done so already, follow our [Pipeline Quickstart](pipeline-quickstart.md) to setup your environment and create your first map layers.
 
 ## 2. Install QGIS
 
-1. Download and install QGIS, per instructions at the [QGIS Download page](https://qgis.org/download/).
+Download and install QGIS, per instructions at the [QGIS Download page](https://qgis.org/download/).
 
 ## 3. Load Our Map Layers
 
