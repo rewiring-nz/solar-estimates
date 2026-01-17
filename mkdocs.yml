@@ -29,6 +29,9 @@ markdown_extensions:
       custom_checkbox: true
   - pymdownx.tilde:            # Enables ~~strikethrough~~
       smart_delete: true
+  - pymdownx.details           # Enables collapsible blocks
+  - pymdownx.blocks.admonition # Enables GitHub-style [!TIP] blocks
+  - admonition                 # Eables !!! blocks
 
 plugins:
   - search
