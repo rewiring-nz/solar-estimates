@@ -4,8 +4,8 @@ _This guide explains how to source and use your own data for our solar pipeline 
 
 **Last updated:** Jan 2026
 
-!!! tip
-    Our pipeline script is CPU intensive. Best to start with small datasets before getting larger.
+!!! warning
+    Our pipeline script is CPU intensive. You are likely to run out of memory, or take a very long time to run. Best to start with small datasets before getting larger.
 
 ## 1. Where to Get Source Data
 
@@ -49,25 +49,18 @@ solar-estimates/
 To run the pipeline script with our own data, we use the docker `compose run command` to override the default arguments.
 
 ```bash
-  docker compose run pipeline /opt/venv/bin/python /app/src/pipeline.py \
+docker compose run pipeline /opt/venv/bin/python /app/src/pipeline.py \
   --area-name "my-council" \
   --dsm-glob "data/my-council/*.tif" \
   --building-dir "data/my-council" \
   --building-layer-name "nz-building-outlines-all-sources"
-  ```
+```
 
 ### 3.1 Breakdown of Arguments
 * **`--area-name`**: This prefix will be used for your output GeoPackage.
 * **`--dsm-glob`**: The path to your DSM files inside the container. Since the project root is mounted to `/app` in the Docker environment, the path starts with `data/...`.
 * **`--building-dir`**: The folder containing your source building GeoPackage inside the container.
 * **`--building-layer-name`**: The specific name of the layer inside your GeoPackage.
-
-## 5. Troubleshooting Data Mounts
-
-If the pipeline reports that it cannot find your files:
-1.  **Check Paths:** The script runs from `/app/src` inside the container. Ensure your paths are relative to that location.
-2.  **Verify Volume Mapping:** Check that your `docker-compose.yml` includes the mapping `- .:/app`. This ensures your local `src/data/my-council` folder is mirrored inside the container.
-3.  **Layer Names:** Ensure the `--building-layer-name` matches the internal layer name of the GeoPackage. Note that some GIS exports append metadata or timestamps to the internal layer name which may differ from the filename.
 
 ## Next steps
 Why don't you try changing some of the other input attributes.
