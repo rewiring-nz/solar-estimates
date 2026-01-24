@@ -13,6 +13,7 @@ The pipeline script requires two primary inputs: **Digital Surface Models (DSM)*
 
 ### 1.1 Digital Surface Models (DSM)
 For accurate solar modeling (including roof pitch and shading from chimneys or trees), you need a **1m resolution DSM**.
+
 * **Source:** Search for the latest at: [LINZ Data Service - New Zealand LiDAR 1m DSM](https://data.linz.govt.nz/data/?q=New+Zealand+LiDAR+1m+DSM)
 * **Format:** Download as GeoTIFF files.
 * **Region:** Select a region you are interested in. You might experience download size limits.
@@ -22,6 +23,7 @@ For accurate solar modeling (including roof pitch and shading from chimneys or t
     Digital *Surface* Models (DSM) include building rooftops and tree tops. Digital *Elevation* Models (DEM) are not suitable for our analysis as they represent bare ground elevation.
 
 ### 1.2 Building Outlines
+
 * **Source:** [LINZ Data Service - All Building Outlines](https://data.linz.govt.nz/data/?q=building+outlines)
 * **Format:** Download as a GeoPackage.
 * **Coordinate System:** Ensure your data is in **EPSG:2193** (NZGD2000 / New Zealand Transverse Mercator 2000).
