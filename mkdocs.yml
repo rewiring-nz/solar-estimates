@@ -54,6 +54,7 @@ nav:
     - How-to Use Your Own Data: user/how-to-use-your-own-data.md
   - Developer Guide:
     - Developer Guide: developer/index.md
+    - Github Guide: developer/github-contribution-guide.md
     - Website Maintenance Guide: developer/website-guide.md
     - Design: developer/design.md
     - API Reference: developer/reference.md
