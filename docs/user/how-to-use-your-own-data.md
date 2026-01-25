@@ -31,6 +31,12 @@ For accurate solar modeling (including roof pitch and shading from chimneys or t
 !!! tip
     The [Geopackage](https://www.geopackage.org/) format is faster for spatial analysis than the legacy `shapefile` format. It is a standards based [Spatialite](https://www.gaia-gis.it/fossil/libspatialite/index) database in a file, which extends the [SQLite](https://sqlite.org/) format.
 
+!!! note
+    We've observed:
+
+    * [NZ Building Outlines, Dec 2025](https://data.linz.govt.nz/data/?q=building+outlines) provides an authoritative dataset, but is missing some buildings.
+    * [NZ Building Outlines (All Sources), Dec 2025](https://data.linz.govt.nz/data/?q=NZ+Building+Outlines+%28All+Sources%29) covers more buildings, but also has duplicates.
+
 ## 2. Organizing Your Data Folder
 
 To make your data accessible to the pipeline.py script, within your Docker container, you should place it within the `src/data/` directory of the project.
