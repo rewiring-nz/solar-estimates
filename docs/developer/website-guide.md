@@ -12,7 +12,8 @@ _This guide describes how the website infrastructure is setup._
 graph TD
     subgraph Local Development
         A[docs/*.md] --Guides / Howtos --> D{ }
-        B[src/*.py Docstrings] -- API Reference--> D
+        B[src/*.py Docstrings] --> Y{ }
+        X[reference.md] --> Y --API Reference--> D
         C[mkdocs.yml] -- Navigation / Style --> D
         D --docker compose up docs--> K
     end
@@ -32,7 +33,8 @@ _Diagram: Doc toolchain workflow_
 | Source | Description |
 | :---- | :---- |
 | docs/\*.md | Standard documentation is in markdown. |
-| src/\*.py | The "API Reference" section is automatically extracted from Python docstrings. |
+| src/\*.py | The "API Reference" section is automatically extracted from Python docstrings in mkdocs format. |
+| docs/developer/reference.md | New python files need to be added in order to extract docs-as-code. |
 | mkdocs.yml | Navigation and Style: New files need to be added to the nav section of this config. |
 
 ### Local Preview
