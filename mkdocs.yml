@@ -46,16 +46,18 @@ nav:
     - About: about.md
     - License: license.md 
     - Contact: contact.md
+  - Download: downloads.md
   - User Guide:
     - User Guide: user/index.md
-    - Key Concepts: user/concepts.md
     - Pipeline Quickstart: user/pipeline-quickstart.md
+    - Pipeline - Source Data : user/how-to-use-your-own-data.md
     - QGIS Quickstart: user/qgis-quickstart.md
-    - How-to Use Your Own Data: user/how-to-use-your-own-data.md
   - Developer Guide:
     - Developer Guide: developer/index.md
-    - Github Guide: developer/github-contribution-guide.md
-    - Website Maintenance Guide: developer/website-guide.md
+    - Key Concepts: developer/concepts.md
     - Design: developer/design.md
     - API Reference: developer/reference.md
-  - Downloads: downloads.md
+    - Github Guide: developer/github-contribution-guide.md
+    - Website Maintenance Guide: developer/website-guide.md
+    - Source Code: https://github.com/rewiring-nz/solar-estimates
+    - Kanban: https://github.com/orgs/rewiring-nz/projects/3
