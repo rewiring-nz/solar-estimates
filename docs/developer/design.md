@@ -9,77 +9,79 @@ _This content is mostly AI generated from source code (as at Jan 2026)._
 
 ## System Workflow
 
-graph TD
+```mermaid
+flowchart TD
 
-    %% Source Datasets
-    subgraph "Source Datasets (Input)"
-        SD1[(DSM GeoTIFF Tiles)] 
-        SD2[(Building Outlines GPKG/SHP)]
+    %% Stage 1: Input Datasets
+    subgraph Inputs ["Input Datasets"]
+        SD1[(DSM GeoTIFF Tiles)]
+        SD2[(Building Outlines)]
         SD3[(WRF NetCDF - Optional)]
     end
 
-    %% Processing Pipeline (Using Stadium Shapes for Actions)
-    subgraph "Pipeline - pipeline.py"
-        P1[merge_rasters]
-        P2[calculate_slope_aspect_rasters]
-        P3[calculate_solar_irradiance_interpolated]
-        P4[load_building_outlines]
-        P5[calculate_outline_raster]
-        P6[process_wrf_for_grass]
-        P7[create_stats]
+    %% Stage 2: Interim Datasets
+    subgraph Interim ["Interim Datasets (Internal GRASS/VRT)"]
+        ID1[[Merged VRT]]
+        ID2[[GRASS DSM Raster]]
+        ID3[[Slope & Aspect Rasters]]
+        ID4[[Clear-Sky Irradiance]]
+        ID5[[Building Vector Map]]
+        ID6[[Solar on Buildings]]
+        ID7[[Filtered Irradiance]]
+        ID8[[Solar Coefficients]]
+        ID9[[WRF Adjusted Total]]
     end
 
-    %% Intermediate Datasets (Using Subroutine shapes for Data)
-    subgraph "Internal GRASS Mapset (Intermediate)"
-        ID1[[Merged VRT / DSM Raster]]
-        ID2[[Slope & Aspect Rasters]]
-        ID3[[Clear-Sky Irradiance Rasters]]
-        ID4[[Building Vector Map]]
-        ID5[[Solar Coefficient Rasters]]
-        ID6[[WRF Adjusted Total Raster]]
+    %% Stage 3: Target Datasets
+    subgraph Targets ["Output Target Datasets"]
+        TD1[Building Stats GeoPackage]
+        TD2[Building Stats CSV]
+        TD3[Multi-band GeoTIFF]
     end
 
-    %% Target Datasets
-    subgraph "Target Datasets (Output)"
-        TD1[(Building Stats GeoPackage)]
-        TD2[(Building Stats CSV)]
-        TD3[(Final GeoTIFFs - Optional)]
-    end
-
-    %% Data Flow
-    SD1 --> P1 --> ID1
-    ID1 --> P2 --> ID2
-    ID1 & ID2 --> P3 --> ID3
-    SD2 --> P4 --> ID4
-    ID3 & ID4 --> P5 --> ID1
+    %% Data Flow and Transformation Labels
+    SD1 -- "merge_rasters" --> ID1
+    ID1 -- "load_virtual_raster_into_grass" --> ID2
+    ID2 -- "calculate_slope_aspect_rasters" --> ID3
+    ID2 & ID3 -- "calculate_solar_irradiance_interpolated" --> ID4
+    SD2 -- "load_building_outlines" --> ID5
+    ID4 & ID5 -- "calculate_outline_raster" --> ID6
+    ID6 & ID3 -- "filter_raster_by_slope" --> ID7
     
-    %% WRF Path
-    SD3 --> P6 --> ID5
-    ID3 & ID5 --> P6 --> ID6
+    %% Optional WRF Path
+    SD3 -- "process_wrf_for_grass" --> ID8
+    ID4 -- "calculate_solar_coefficients" --> ID8
+    ID8 -- "calculate_wrf_adjusted_per_day" --> ID9
     
-    %% Final Aggregation
-    ID1 & ID4 & ID6 --> P7
-    P7 --> TD1 & TD2
-    P5 & ID2 --> TD3
+    %% Final Exports
+    ID7 & ID9 & ID5 -- "create_stats" --> TD1
+    ID7 & ID9 & ID5 -- "create_stats" --> TD2
+    ID7 & ID3 -- "export_final_raster" --> TD3
 ```
 
 ## Technology Stack
 
 ### Containerisation
 The system is built on **Docker** and **Docker Compose** to ensure a consistent environment across different platforms (Linux, macOS, Windows).
+
 *   **Base Image:** Ubuntu 24.04 LTS (Noble).
 *   **Geospatial Libraries:** Uses the **UbuntuGIS Unstable PPA** to provide the latest versions of GRASS GIS (8.4+) and GDAL.
 *   **Python Environment:** Dependencies are managed within a virtual environment (`/opt/venv`) to avoid conflicts with system-level packages.
 
 ### Computational Engines
+
 *   **GRASS GIS:** Acts as the primary spatial database and computational engine. It handles solar radiation modelling (`r.sun`), geometric calculations (`r.slope.aspect`), and statistical aggregation.
 *   **GDAL:** Used for initial data discovery, building Virtual Rasters (VRT), and final data format exports.
 
 ## Target architecture
+
 The following diagram shows the future architecture we are working toward.
 
 ```mermaid
 flowchart TD
+
+    %% Style for Future items (traffic-light amber)
+    classDef future fill:#FFE0B2,stroke:#FB8C00,stroke-width:1px,color:#000;
 
     subgraph A ["**Sources**"]
         
@@ -165,5 +167,8 @@ flowchart TD
 
     %% Sequential Flow
     A --> B --> C --> D
+
+    %% Apply Future styling
+    class AB2,BA3,BA5,BB1,BB2,BC1,BC2,BC3,BC4,CA1,DA2,DA3,DA4 future
 ```
 _Diagram: Target high level architecture. Boxes tagged with "Future" are planned for a future implementation._
