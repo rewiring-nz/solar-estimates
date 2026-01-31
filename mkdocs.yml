@@ -46,6 +46,7 @@ nav:
     - About: about.md
     - License: license.md 
     - Contact: contact.md
+  - Download: downloads.md
   - User Guide:
     - User Guide: user/index.md
     - Pipeline Quickstart: user/pipeline-quickstart.md
@@ -58,4 +59,5 @@ nav:
     - API Reference: developer/reference.md
     - Github Guide: developer/github-contribution-guide.md
     - Website Maintenance Guide: developer/website-guide.md
-  - Downloads: downloads.md
+    - Source Code: https://github.com/rewiring-nz/solar-estimates
+    - Kanban: https://github.com/orgs/rewiring-nz/projects/3
