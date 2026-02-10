@@ -18,20 +18,10 @@ __pycache__/
 *.shp
 *.shx
 
-# Exclude data directory
-!src/data/**/*.tif
-!src/data/**/*.tfw
-!src/data/**/*.vrt
-!src/data/**/*.xml
-!src/data/**/*.aux
-!src/data/**/*.aux.aux.xml
-!src/data/**/*.tif.aux.xml
-
-!src/data/**/*.cpg
-!src/data/**/*.dbf
-!src/data/**/*.prj
-!src/data/**/*.shp
-!src/data/**/*.shx
+# Exclude all data except quickstart example
+src/data/**
+!src/data/queenstown_lakes_building_outlines/*
+!src/data/shotover_country/*
 
 # Other data formats
 *.csv
