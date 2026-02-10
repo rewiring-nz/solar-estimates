@@ -25,7 +25,7 @@ For accurate solar modeling (including roof pitch and shading from chimneys or t
 ### 1.2 Building Outlines
 
 * **Source:** [LINZ Data Service - All Building Outlines](https://data.linz.govt.nz/data/?q=building+outlines)
-* **Format:** Download as a GeoPackage.
+* **Format:** Download as a ShapeFile.
 * **Coordinate System:** Ensure your data is in **EPSG:2193** (NZGD2000 / New Zealand Transverse Mercator 2000).
 
 !!! tip
@@ -46,22 +46,35 @@ Create a new sub-folder for your specific area to keep things organized:
 solar-estimates/
 └── src/
     └── data/
-        └── my-council/
+        ├── my_council_building_outlines_SHP
+        └── my_council/
             ├── dsm_tile_1.tif
+            ├── dsm_tile_1.tif.aux.xml
             ├── dsm_tile_2.tif
-            └── nz-building-outlines-all-sources.gpkg
+            └── dsm_tile_2.tif.aux.xml
 ```
 
+Use "snake_case" for naming files to avoid issues with the build scripts.
 ## 3. Run the Pipeline with Custom Data
 
 To run the pipeline script with our own data, we use the docker `compose run command` to override the default arguments.
 
 ```bash
 docker compose run pipeline /opt/venv/bin/python /app/src/pipeline.py \
-  --area-name "my-council" \
-  --dsm-glob "data/my-council/*.tif" \
-  --building-dir "data/my-council" \
-  --building-layer-name "nz-building-outlines-all-sources"
+  --area-name "my_council" \
+  --dsm-glob "data/my_council/*.tif" \
+  --building-dir "data/my_council_building_outlines_SHP" \
+  --building-layer-name "my_council_buildings"
+```
+
+The output will appear in the `src` directory:
+
+```text
+solar-estimates/
+└── src/
+    ├── my_council_building_stats.csv
+    ├── my_council_building_stats.gpkg
+    └── my_council_merged.vrt
 ```
 
 ### 3.1 Breakdown of Arguments
