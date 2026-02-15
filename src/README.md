@@ -119,10 +119,10 @@ python3 pipeline.py \
 
 | Argument | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `--dsm-glob` | No | `data/shotover_country/*.tif` | Glob pattern for DSM GeoTIFF files |
-| `--building-dir` | No | `data/queenstown_lakes_building_outlines` | Directory containing building outline shapefiles |
-| `--area-name` | No | `shotover_country` | Descriptive name for the area (used in filenames) |
-| `--building-layer-name` | No | `queenstown_lakes_buildings` | Name of the building outline layer |
+| `--dsm-glob` | No | `data/shotover_country/*.tif` | Glob pattern for input DSM GeoTIFF files |
+| `--building-dir` | No | `data/queenstown_lakes_building_outlines` | Directory containing input building outline shapefiles |
+| `--area-name` | No | `shotover_country` | Descriptive name for the area (used in output filenames) |
+| `--building-layer-name` | No | `queenstown_lakes_buildings` | Name of the output building outline layer |
 | `--grass-base` | No | Auto-detected | Path to GRASS GIS installation |
 | `--output-prefix` | No | `solar_on_buildings` | Prefix for output files |
 | `--max-slope` | No | `45.0` | Maximum slope in degrees for filtering |

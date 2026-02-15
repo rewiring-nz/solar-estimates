@@ -53,25 +53,25 @@ def parse_args():
     parser.add_argument(
         "--dsm-glob",
         default="data/shotover_country/*.tif",
-        help='Glob for DSM GeoTIFF files (default: "data/shotover_country/*.tif")',
+        help='Glob for DSM GeoTIFF files to use as inputs (default: "data/shotover_country/*.tif")',
     )
 
     parser.add_argument(
         "--building-dir",
         default="data/queenstown_lakes_building_outlines",
-        help='Directory containing building outline shapefiles (default: "data/queenstown_lakes_building_outlines")',
+        help='Directory containing building outline shapefiles to use as inputs (default: "data/queenstown_lakes_building_outlines")',
     )
 
     parser.add_argument(
         "--area-name",
         default="shotover_country",
-        help='Descriptive name for the area (default: "shotover_country")',
+        help='Descriptive name for the area that will be used in outputs (default: "shotover_country")',
     )
 
     parser.add_argument(
         "--building-layer-name",
         default="queenstown_lakes_buildings",
-        help='Name of the building outline layer (default: "queenstown_lakes_buildings")',
+        help='Name of the output building outline layer (default: "queenstown_lakes_buildings")',
     )
 
     parser.add_argument(

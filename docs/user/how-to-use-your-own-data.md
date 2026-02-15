@@ -42,12 +42,20 @@ For accurate solar modeling (including roof pitch and shading from chimneys or t
 To make your data accessible to the pipeline.py script, within your Docker container, you should place it within the `src/data/` directory of the project.
 
 Create a new sub-folder for your specific area to keep things organized:
+
 ```text
 solar-estimates/
 └── src/
     └── data/
-        ├── my_council_building_outlines_SHP
-        └── my_council/
+        ├── my_area_building_outlines/
+            ├── nz-building-outlines.cpg
+            ├── nz-building-outlines.dbf
+            ├── nz-building-outlines.prj
+            ├── nz-building-outlines.shp
+            ├── nz-building-outlines.shx
+            ├── nz-building-outlines.txt
+            └── nz-building-outlines.xml
+        └── my_area_dsm/
             ├── dsm_tile_1.tif
             ├── dsm_tile_1.tif.aux.xml
             ├── dsm_tile_2.tif
@@ -55,16 +63,15 @@ solar-estimates/
 ```
 
 Use "snake_case" for naming files to avoid issues with the build scripts.
-## 3. Run the Pipeline with Custom Data
 
-To run the pipeline script with our own data, we use the docker `compose run command` to override the default arguments.
+## 3. Run the pipeline with custom data via config files
+
+To run the pipeline script with our own data, we use the docker `compose run command` to override the default arguments. Since there are lots of arguments, it's easiest to organise these into environment files. See the `config/` folder for examples.
+
+Then, you can run the docker container while pointing to a particular environment file:
 
 ```bash
-docker compose run pipeline /opt/venv/bin/python /app/src/pipeline.py \
-  --area-name "my_council" \
-  --dsm-glob "data/my_council/*.tif" \
-  --building-dir "data/my_council_building_outlines_SHP" \
-  --building-layer-name "my_council_buildings"
+docker compose --env-file configs/shotover.env up pipeline
 ```
 
 The output will appear in the `src` directory:
@@ -77,11 +84,4 @@ solar-estimates/
     └── my_council_merged.vrt
 ```
 
-### 3.1 Breakdown of Arguments
-* **`--area-name`**: This prefix will be used for your output GeoPackage.
-* **`--dsm-glob`**: The path to your DSM files inside the container. Since the project root is mounted to `/app` in the Docker environment, the path starts with `data/...`.
-* **`--building-dir`**: The folder containing your source building GeoPackage inside the container.
-* **`--building-layer-name`**: The specific name of the layer inside your GeoPackage.
-
-## Next steps
-Why don't you try changing some of the other input attributes.
+The pipeline has many input arguments that you can try. See `src/README.md` for an explanation of each of the arguments.
