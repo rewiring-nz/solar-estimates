@@ -56,6 +56,7 @@ nav:
     - Developer Guide: developer/index.md
     - Key Concepts: developer/concepts.md
     - Design: developer/design.md
+    - Data: developer/data.md
     - API Reference: developer/reference.md
     - Github Guide: developer/github-contribution-guide.md
     - Website Maintenance Guide: developer/website-guide.md
