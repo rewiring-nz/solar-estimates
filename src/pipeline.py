@@ -327,10 +327,11 @@ def main():
             grass_module=Module,
         )
 
-    print("Generating statistics...")
+    print("\n👉 Generating statistics...")
     create_stats(
         area=args.area_name,
         building_outlines=outlines,
+        output_dir=output_dir,
         rooftop_raster=f"{args.output_prefix}_filtered",
         wrf_raster=wrf_adjusted,
         output_csv=True,
