@@ -19,9 +19,10 @@ __pycache__/
 *.shx
 
 # Exclude all data except quickstart example
-src/data/**
-!src/data/queenstown_lakes_building_outlines/*
-!src/data/shotover_country/*
+!src/data/inputs/building_outlines/district_QueenstownLakes/*
+!src/data/inputs/DSM/suburb_ShotoverCountry/*
+!src/data/**/.gitignore
+!src/data/**/.gitignore
 
 # Other data formats
 *.csv
