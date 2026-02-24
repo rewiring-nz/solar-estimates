@@ -13,11 +13,12 @@ High-level responsibilities:
 """
 
 import glob
+from pathlib import Path
 from typing import Any, Tuple
 from osgeo import gdal
 
 
-def merge_rasters(dsm_file_glob: str, area_name: str) -> str:
+def merge_rasters(dsm_file_glob: str, area_name: str, output_dir: Path) -> str:
     """Merge tiled DSM files into a single VRT using GDAL.
 
     This function discovers DSM tiles using a glob pattern, builds a GDAL VRT
@@ -45,7 +46,7 @@ def merge_rasters(dsm_file_glob: str, area_name: str) -> str:
     # Build a Virtual Raster (VRT). Use nearest-neighbor resampling by default
     try:
         vrt_options = gdal.BuildVRTOptions(resampleAlg=gdal.GRA_NearestNeighbour)
-        vrt_path = f"data/outputs/{area_name}_merged.vrt"
+        vrt_path = f"{str(output_dir)}/{area_name}_merged.vrt"
         gdal.BuildVRT(vrt_path, dsm_files, options=vrt_options)
     except Exception as e:
         # Propagate any errors
