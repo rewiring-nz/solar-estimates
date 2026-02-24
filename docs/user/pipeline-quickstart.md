@@ -65,9 +65,9 @@ sudo ./setup-docker.sh
 With Docker ready, you can now launch the processing pipeline. This process downloads required images and runs the analysis, which may take several minutes.
 
 ```bash
-# Ensure you are in the project root directory (i.e. go back up one level if you were in scripts/)
+# Ensure you are in the project root directory (i.e. go back up one level if you were in scripts/ or src/)
 
-docker compose up pipeline
+docker compose --env-file configs/shotover.env up pipeline
 ```
 You will see logs in your terminal as the `pipeline.sh` script executes.
 

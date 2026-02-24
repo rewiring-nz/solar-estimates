@@ -37,38 +37,48 @@ For accurate solar modeling (including roof pitch and shading from chimneys or t
     * [NZ Building Outlines, Dec 2025](https://data.linz.govt.nz/data/?q=building+outlines) provides an authoritative dataset, but is missing some buildings.
     * [NZ Building Outlines (All Sources), Dec 2025](https://data.linz.govt.nz/data/?q=NZ+Building+Outlines+%28All+Sources%29) covers more buildings, but also has duplicates.
 
-## 2. Organizing Your Data Folder
+## 2. Organising Your Data Folder
 
-To make your data accessible to the pipeline.py script, within your Docker container, you should place it within the `src/data/` directory of the project.
+To make your data accessible to the pipeline.py script in your Docker container, put it in the appropriate sub-folders within `src/data/inputs`. There are folders for different data types (e.g. buliding outlines, DSMs, weather). You should create a new sub-folder for data on new areas, named something like `district_YourDistrictHere`, `suburb_YourSuburbHere`, `region_*`, `electorate_*`, `ta_*` (territorial authority), or `nationwide`, to make it really clear exactly what is included in the data and what is not. Use `snake_case`, not `kebab-case`, for consistency (kebab case is reserved for other things in parts of the pipeline).
 
-Create a new sub-folder for your specific area to keep things organized:
+The pipeline will calculate for the areas in the intersect of the building outlines and the DSMs provided. So they don't have to be exactly the same, e.g. you might have a DSM of just the suburb Shotover Country, but run it with building outlines for all of the Queenstown Lakes district.
 
 ```text
 solar-estimates/
 └── src/
     └── data/
-        ├── my_area_building_outlines/
-            ├── nz-building-outlines.cpg
-            ├── nz-building-outlines.dbf
-            ├── nz-building-outlines.prj
-            ├── nz-building-outlines.shp
-            ├── nz-building-outlines.shx
-            ├── nz-building-outlines.txt
-            └── nz-building-outlines.xml
-        └── my_area_dsm/
-            ├── dsm_tile_1.tif
-            ├── dsm_tile_1.tif.aux.xml
-            ├── dsm_tile_2.tif
-            └── dsm_tile_2.tif.aux.xml
+        └── inputs/
+            └── building_outlines/
+                ├── district_MyCoolDistrict/
+                    ├── nz-building-outlines.cpg
+                    ├── nz-building-outlines.dbf
+                    ├── nz-building-outlines.prj
+                    ├── nz-building-outlines.shp
+                    ├── nz-building-outlines.shx
+                    ├── nz-building-outlines.txt
+                    └── nz-building-outlines.xml
+            └── DEM/
+            └── DSM/
+                └── district_MyCoolDistrict/
+                    ├── dsm_tile_1.tif
+                    ├── dsm_tile_1.tif.aux.xml
+                    ├── dsm_tile_2.tif
+                    └── dsm_tile_2.tif.aux.xml
+                    ...
+            └── weather/
+                └── nationwide/
 ```
 
-Use "snake_case" for naming files to avoid issues with the build scripts.
 
-## 3. Run the pipeline with custom data via config files
+## 3. Create a config file
 
-To run the pipeline script with our own data, we use the docker `compose run command` to override the default arguments. Since there are lots of arguments, it's easiest to organise these into environment files. See the `config/` folder for examples.
+Since the pipeline has a lot of long input arguments, we have config environment files where you can organise these. See the `config/` folder for examples and create a new one that points to your newly organised custom data.
 
-Then, you can run the docker container while pointing to a particular environment file:
+The pipeline has many input arguments that you can try. See `src/README.md` for an explanation of each of the arguments.
+
+## 4. Run the pipeline with your custom data
+
+To run the pipeline script with your own data by pointing the docker container towards a particular environment file, like this example:
 
 ```bash
 docker compose --env-file configs/shotover.env up pipeline
