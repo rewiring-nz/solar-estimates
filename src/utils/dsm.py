@@ -41,7 +41,7 @@ def merge_rasters(dsm_file_glob: str, area_name: str, output_dir: Path) -> str:
     # Find input files using the glob pattern
     dsm_files = glob.glob(dsm_file_glob)
     if not dsm_files:
-        raise FileNotFoundError(f"No files found for pattern: {dsm_file_glob}")
+        raise FileNotFoundError(f"🚫 No files found for pattern: {dsm_file_glob}")
 
     # Build a Virtual Raster (VRT). Use nearest-neighbor resampling by default
     try:
@@ -51,7 +51,7 @@ def merge_rasters(dsm_file_glob: str, area_name: str, output_dir: Path) -> str:
     except Exception as e:
         # Propagate any errors
         raise RuntimeError(
-            f"Failed to build VRT from {len(dsm_files)} files: {e}"
+            f"🚫 Failed to build VRT from {len(dsm_files)} files: {e}"
         ) from e
 
     # Return the VRT path

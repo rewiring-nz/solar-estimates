@@ -26,10 +26,10 @@ def _validate_day_arg(day_val):
     try:
         d = int(day_val)
     except (ValueError, TypeError):
-        raise ValueError("day must be an integer")
+        raise ValueError("🚫 day must be an integer")
 
     if d < 1 or d > 365:
-        raise ValueError("day must be within 1..365")
+        raise ValueError("🚫 day must be within 1..365")
 
     return d
 
@@ -75,7 +75,7 @@ if __name__ == "__main__":
         val = linke_by_day(sys.argv[1])
         print("%.4f" % val)
     except (ValueError, TypeError) as e:
-        print(f"Error: {e}")
+        print(f"🚫 Error: {e}")
         print("USAGE: linke.py [day number (1-365)]")
 
         sys.exit(1)
