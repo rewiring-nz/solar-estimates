@@ -18,7 +18,7 @@ Download and install QGIS, per instructions at the [QGIS Download page](https://
 
 1. Run QGIS on your desktop.
 2. In the QGIS **Browser** pane, navigate to the `solar-estimates/src/` directory.
-3. Double-click on the `shotover_country_building_stats.gpkg` file to show it's layers.
+3. Double-click on the `suburb_ShotoverCountry_building_stats.gpkg` file to show it's layers.
 4.  Right-click on the `building_stats` layer and select `Add Layer to Project`.
     1. See the building outlines getting rendered in the **Map** pane.
     2. See the buildings title get add to the **Layers** pane.

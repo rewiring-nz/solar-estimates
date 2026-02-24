@@ -217,14 +217,16 @@ def _export_combined_stats(
         if has_wrf:
             columns = "building_i, suburb_loc, town_city, roof_mwh, wrf_mwh, percent_loss, area_sqm, usable_sqm"
         else:
-            columns = "building_i, suburb_loc, town_city, roof_mwh, area_sqm, usable_sqm"
+            columns = (
+                "building_i, suburb_loc, town_city, roof_mwh, area_sqm, usable_sqm"
+            )
 
         v_db_select = grass_module(
             "v.db.select",
             map="filtered_buildings",
             columns=columns,
             where="roof_sum IS NOT NULL",
-            file=f"{area}_building_stats.csv",
+            file=f"data/outputs/{area}_building_stats.csv",
             overwrite=True,
         )
         v_db_select.run()
@@ -233,14 +235,14 @@ def _export_combined_stats(
     v_out_ogr = grass_module(
         "v.out.ogr",
         input="filtered_buildings",
-        output=f"{area}_building_stats.gpkg",
+        output=f"data/outputs/{area}_building_stats.gpkg",
         format="GPKG",
         output_layer="building_stats",
         overwrite=True,
     )
     v_out_ogr.run()
 
-    return f"{area}_building_stats.gpkg"
+    return f"data/outputs/{area}_building_stats.gpkg"
 
 
 def create_stats(

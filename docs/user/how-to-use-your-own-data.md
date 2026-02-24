@@ -81,17 +81,18 @@ The pipeline has many input arguments that you can try. See `src/README.md` for 
 To run the pipeline script with your own data by pointing the docker container towards a particular environment file, like this example:
 
 ```bash
-docker compose --env-file configs/shotover.env up pipeline
+docker compose --env-file configs/suburb_ShotoverCountry.env up pipeline
 ```
 
-The output will appear in the `src` directory:
+The output will appear in the `src/data/outputs/OUTPUT_AREA_NAME` directory as defined in your config file, like this:
 
 ```text
 solar-estimates/
 └── src/
-    ├── my_council_building_stats.csv
-    ├── my_council_building_stats.gpkg
-    └── my_council_merged.vrt
+    └── data/
+        └── outputs/
+            └── OUTPUT_AREA_NAME/
+                ├── OUTPUT_AREA_NAME_building_stats.csv
+                ├── OUTPUT_AREA_NAME_building_stats.gpkg
+                └── OUTPUT_AREA_NAME_merged.vrt
 ```
-
-The pipeline has many input arguments that you can try. See `src/README.md` for an explanation of each of the arguments.
