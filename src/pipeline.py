@@ -6,6 +6,7 @@ CLI tool for estimating solar irradiance on buildings from digital surface model
 import argparse
 import platform
 import sys
+import time
 from pathlib import Path
 
 from utils.building_outlines import (
@@ -21,6 +22,7 @@ from utils.dsm import (
     merge_rasters,
 )
 from utils.grass_utils import setup_grass
+from utils.misc import generate_duration_message
 from utils.solar_irradiance import (
     calculate_solar_coefficients,
     calculate_solar_irradiance_interpolated,
@@ -137,6 +139,8 @@ def parse_args():
 
 
 def main():
+    start_time = time.perf_counter()
+
     args = parse_args()
 
     # Validate inputs
@@ -337,7 +341,10 @@ def main():
         grass_module=Module,
     )
 
-    print("Processing complete!")
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    print("\n🙌 Processing complete!")
+    print("⌛️ " + generate_duration_message(elapsed_time))
 
 
 if __name__ == "__main__":
