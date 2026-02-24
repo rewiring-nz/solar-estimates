@@ -224,9 +224,25 @@ def main():
     wrf_adjusted = None
 
     if args.wrf_file:
-        print("Calculating per-day solar coefficients...")
+        # Clip irradiance rasters to buildings before normalization
+        print("Clipping irradiance rasters to buildings for coefficient calculation...")
+        rooftop_day_irradiance_rasters = {}
+        for day, irradiance_raster in day_irradiance_rasters.items():
+            rooftop_raster = f"{irradiance_raster}_on_buildings"
+            rooftop_raster_name = calculate_outline_raster(
+                solar_irradiance_raster=irradiance_raster,
+                building_vector=outlines,
+                output_name=rooftop_raster,
+                grass_module=Module,
+            )
+            rooftop_day_irradiance_rasters[day] = rooftop_raster_name
+
+        # Calculate percent-of-max solar coefficients (after clipping)
+        print(
+            "Calculating per-day solar coefficients (percent-of-max, rooftop only)..."
+        )
         day_coefficient_rasters = calculate_solar_coefficients(
-            day_irradiance_rasters=day_irradiance_rasters,
+            day_irradiance_rasters=rooftop_day_irradiance_rasters,
             dsm=virtual_raster,
             grass_module=Module,
         )
@@ -243,8 +259,8 @@ def main():
             print_diagnostics=False,
         )
 
-        # Apply per-day coefficients to WRF rasters
-        print("Applying per-day solar coefficients to WRF data...")
+        # Apply per-day percent-of-max coefficients to WRF rasters
+        print("Applying per-day percent-of-max solar coefficients to WRF data...")
         adjusted_day_rasters = calculate_wrf_adjusted_per_day(
             wrf_day_rasters=wrf_day_rasters,
             coefficient_rasters=day_coefficient_rasters,

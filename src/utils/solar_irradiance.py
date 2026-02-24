@@ -46,20 +46,19 @@ def _get_raster_min_max(raster_name: str, grass_module) -> tuple[float, float]:
 
     return float(stats["min"]), float(stats["max"])
 
-def _normalize_raster(
+
+def _percent_of_max_raster(
     input_raster: str,
     output_raster: str,
     grass_module,
 ) -> str:
-    """Normalize a raster to the 0-1 range using min-max scaling.
+    """Normalize a raster to percentage of the maximum value (0-1 scale).
 
-    Used as part of adjusting WRF irradiance rasters.
-
-    Applies the formula: normalized = (value - min) / (max - min)
+    Applies the formula: percent = value / max
 
     This creates a coefficient raster where:
-        - 0 represents the minimum irradiance location
         - 1 represents the maximum irradiance location
+        - Other values are a fraction of the maximum
 
     Args:
         input_raster: Name of the input raster to normalize.
@@ -69,14 +68,10 @@ def _normalize_raster(
     Returns:
         The name of the output normalized raster (same as output_raster).
     """
-    min_val, max_val = _get_raster_min_max(input_raster, grass_module)
+    _, max_val = _get_raster_min_max(input_raster, grass_module)
 
-    # Build the r.mapcalc expression for min-max normalization
-    mapcalc_expr = (
-        f"{output_raster} = "
-        f"float({input_raster} - {min_val}) / "
-        f"float({max_val} - {min_val})"
-    )
+    # Build the r.mapcalc expression for percent-of-max normalization
+    mapcalc_expr = f"{output_raster} = float({input_raster}) / float({max_val})"
 
     grass_module(
         "r.mapcalc",
@@ -85,6 +80,7 @@ def _normalize_raster(
     ).run()
 
     return output_raster
+
 
 def calculate_solar_irradiance(
     dsm: str,
@@ -133,6 +129,7 @@ def calculate_solar_irradiance(
     ).run()
 
     return grass_output
+
 
 def calculate_solar_irradiance_interpolated(
     dsm: str,
@@ -196,9 +193,7 @@ def calculate_solar_irradiance_interpolated(
     interp_only_days = [day for day in all_days if day not in key_days_set]
 
     # Build the output raster mapping, starting with the key day rasters we already have
-    day_irradiance_rasters = {
-        day: key_day_rasters[i] for i, day in enumerate(key_days)
-    }
+    day_irradiance_rasters = {day: key_day_rasters[i] for i, day in enumerate(key_days)}
 
     # Only run interpolation if there are days between the key days
     if interp_only_days:
@@ -246,15 +241,16 @@ def calculate_solar_irradiance_interpolated(
 
     return day_irradiance_rasters, summed_irradiance
 
+
 def calculate_solar_coefficients(
     day_irradiance_rasters: dict[int, str],
     dsm: str,
     grass_module,
 ) -> dict[int, str]:
-    """Calculate normalized solar coefficients for each day's irradiance.
+    """Calculate percent-of-max solar coefficients for each day's irradiance.
 
     Converts irradiance values (Wh/m²) to relative coefficients (0-1)
-    using min-max normalization.
+    using percent-of-max normalization.
 
     The coefficients are then used to adjust WRF irradiance data so it
     accounts for roof shape, shading, etc.
@@ -271,8 +267,8 @@ def calculate_solar_coefficients(
     day_coefficient_rasters = {}
 
     for day, irradiance_raster in day_irradiance_rasters.items():
-        coefficient_raster = f"{dsm}_solar_coefficient_day{day}"
-        _normalize_raster(irradiance_raster, coefficient_raster, grass_module)
+        coefficient_raster = f"{dsm}_solar_percentmax_day{day}"
+        _percent_of_max_raster(irradiance_raster, coefficient_raster, grass_module)
         day_coefficient_rasters[day] = coefficient_raster
 
     return day_coefficient_rasters
