@@ -13,12 +13,12 @@ High-level responsibilities:
 """
 
 import glob
+from pathlib import Path
 from typing import Any, Tuple
 from osgeo import gdal
 
-def merge_rasters(
-    dsm_file_glob: str, area_name: str
-) -> str:
+
+def merge_rasters(dsm_file_glob: str, area_name: str, output_dir: Path) -> str:
     """Merge tiled DSM files into a single VRT using GDAL.
 
     This function discovers DSM tiles using a glob pattern, builds a GDAL VRT
@@ -46,16 +46,21 @@ def merge_rasters(
     # Build a Virtual Raster (VRT). Use nearest-neighbor resampling by default
     try:
         vrt_options = gdal.BuildVRTOptions(resampleAlg=gdal.GRA_NearestNeighbour)
-        vrt_path = f"{area_name}_merged.vrt"
+        vrt_path = f"{str(output_dir)}/{area_name}_merged.vrt"
         gdal.BuildVRT(vrt_path, dsm_files, options=vrt_options)
     except Exception as e:
         # Propagate any errors
-        raise RuntimeError(f"Failed to build VRT from {len(dsm_files)} files: {e}") from e
+        raise RuntimeError(
+            f"Failed to build VRT from {len(dsm_files)} files: {e}"
+        ) from e
 
     # Return the VRT path
     return vrt_path
 
-def load_virtual_raster_into_grass(input_vrt: str, output_name: str, grass_module: Any) -> str:
+
+def load_virtual_raster_into_grass(
+    input_vrt: str, output_name: str, grass_module: Any
+) -> str:
     """Attach a VRT (virtual raster) to GRASS using `r.external` and set region.
 
     Using `r.external` avoids copying data into the GRASS database; the VRT is
@@ -81,6 +86,7 @@ def load_virtual_raster_into_grass(input_vrt: str, output_name: str, grass_modul
 
     return output_name
 
+
 def calculate_slope_aspect_rasters(dsm: str, grass_module: Any) -> Tuple[str, str]:
     """Compute slope and aspect rasters from a DSM using GRASS `r.slope.aspect`.
 
@@ -105,6 +111,7 @@ def calculate_slope_aspect_rasters(dsm: str, grass_module: Any) -> Tuple[str, st
     r_slope_aspect.run()
 
     return f"{dsm}_aspect", f"{dsm}_slope"
+
 
 def filter_raster_by_slope(
     input_raster: str,

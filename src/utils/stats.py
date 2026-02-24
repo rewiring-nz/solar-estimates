@@ -15,6 +15,7 @@ GRASS vector/raster database functions. The workflow implemented here is:
 """
 
 from typing import Any, Optional
+from pathlib import Path
 
 
 def _calculate_clear_sky_stats(
@@ -140,6 +141,7 @@ def _calculate_wrf_stats(
 def _export_combined_stats(
     area: str,
     building_outlines: str,
+    output_dir: Path,
     output_csv: bool,
     grass_module: Any,
     has_wrf: bool = False,
@@ -217,14 +219,16 @@ def _export_combined_stats(
         if has_wrf:
             columns = "building_i, suburb_loc, town_city, roof_mwh, wrf_mwh, percent_loss, area_sqm, usable_sqm"
         else:
-            columns = "building_i, suburb_loc, town_city, roof_mwh, area_sqm, usable_sqm"
+            columns = (
+                "building_i, suburb_loc, town_city, roof_mwh, area_sqm, usable_sqm"
+            )
 
         v_db_select = grass_module(
             "v.db.select",
             map="filtered_buildings",
             columns=columns,
             where="roof_sum IS NOT NULL",
-            file=f"{area}_building_stats.csv",
+            file=f"{str(output_dir)}/{area}_building_stats.csv",
             overwrite=True,
         )
         v_db_select.run()
@@ -233,19 +237,20 @@ def _export_combined_stats(
     v_out_ogr = grass_module(
         "v.out.ogr",
         input="filtered_buildings",
-        output=f"{area}_building_stats.gpkg",
+        output=f"{str(output_dir)}/{area}_building_stats.gpkg",
         format="GPKG",
         output_layer="building_stats",
         overwrite=True,
     )
     v_out_ogr.run()
 
-    return f"{area}_building_stats.gpkg"
+    return f"{str(output_dir)}/{area}_building_stats.gpkg"
 
 
 def create_stats(
     area: str,
     building_outlines: str,
+    output_dir: Path,
     rooftop_raster: str,
     grass_module: Any,
     wrf_raster: Optional[str] = None,
@@ -278,7 +283,7 @@ def create_stats(
 
     # Export combined stats to GeoPackage and optionally CSV
     gpkg_file = _export_combined_stats(
-        area, building_outlines, output_csv, grass_module, has_wrf=has_wrf
+        area, building_outlines, output_dir, output_csv, grass_module, has_wrf=has_wrf
     )
 
     return gpkg_file

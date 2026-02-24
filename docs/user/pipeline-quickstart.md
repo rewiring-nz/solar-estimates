@@ -71,13 +71,13 @@ docker compose --env-file configs/shotover.env up pipeline
 ```
 You will see logs in your terminal as the `pipeline.sh` script executes.
 
-Once finished, observe that you have created the following files in the `solar-estimates/src/` directory:
+Once finished, observe that you have created the following files in the `solar-estimates/src/data/outputs/OUTPUT_AREA_NAME/` directory:
 
 | File | Layer Type |
 | :--- | :--- |
-| `shotover_country_building_stats.gpkg` | **GeoPackage:** A spatial database containing a layer of building polygons and their solar attributes. |
-| `shotover_country_merged.vrt` | **Virtual Raster:** A wrapper to multiple solar irradiation tiles. |
-| `shotover_country_building_stats.csv` | **Tabular Data:** A spreadsheet of building solar attributes. |
+| `suburb_ShotoverCountry_building_stats.gpkg` | **GeoPackage:** A spatial database containing a layer of building polygons and their solar attributes. |
+| `suburb_ShotoverCountry_merged.vrt` | **Virtual Raster:** A wrapper to multiple solar irradiation tiles. |
+| `suburb_ShotoverCountry_building_stats.csv` | **Tabular Data:** A spreadsheet of building solar attributes. |
 
 ## 4: Stop and Clean Up
 
