@@ -22,7 +22,6 @@ __pycache__/
 !src/data/inputs/building_outlines/district_QueenstownLakes/*
 !src/data/inputs/DSM/suburb_ShotoverCountry/*
 !src/data/**/.gitignore
-!src/data/**/.gitignore
 
 # Other data formats
 *.csv
