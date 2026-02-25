@@ -71,7 +71,7 @@ def remove_masks(grass_module: Any) -> None:
         r_mask = grass_module("r.mask", flags="r")
         r_mask.run()
     except Exception as e:  # Don't break the workflow if it can't remove the mask
-        print(f"Warning: error removing GRASS mask: {e}")
+        print(f"⚠️ Warning: error removing GRASS mask: {e}")
 
 
 def calculate_outline_raster(

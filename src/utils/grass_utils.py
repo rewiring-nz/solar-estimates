@@ -9,6 +9,7 @@ import subprocess
 import sys
 from typing import Tuple
 
+
 def setup_grass(
     gisbase: str,
     grassdata_dir: str = "grassdata",
@@ -57,7 +58,9 @@ def setup_grass(
         from grass.pygrass.modules import Module  # type: ignore
     except ImportError as e:
         # Provide diagnostic context before re-raising
-        print("Error importing GRASS Python modules. Check if dependencies are installed correctly.")
+        print(
+            "🚫 Error importing GRASS Python modules. Check if dependencies are installed correctly."
+        )
         print(f"GISBASE used: {gisbase}")
         raise
 
