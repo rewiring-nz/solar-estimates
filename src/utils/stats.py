@@ -229,6 +229,7 @@ def _export_combined_stats(
             columns=columns,
             where="roof_sum IS NOT NULL",
             file=f"{str(output_dir)}/{area}_building_stats.csv",
+            separator=",",
             overwrite=True,
         )
         v_db_select.run()
