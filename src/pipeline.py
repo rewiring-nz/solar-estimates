@@ -12,6 +12,7 @@ from pathlib import Path
 
 from utils.building_outlines import (
     calculate_outline_raster,
+    create_buffered_buildings,
     export_final_raster,
     load_building_outlines,
     remove_masks,
@@ -87,6 +88,13 @@ def parse_args():
         "--output-prefix",
         default="solar_on_buildings",
         help='Prefix for output files (default: "solar_on_buildings")',
+    )
+
+    parser.add_argument(
+        "--buffer-distance",
+        type=float,
+        default=10,
+        help="Buffer distance in meters around buildings for solar calculation (default: 500m)",
     )
 
     parser.add_argument(
@@ -197,6 +205,19 @@ def main():
 
     print(f"\n\n\n{' 😎 CALCULATING SOLAR IRRADIANCE 😎 ':=^{logging_terminal_width}}")
 
+    print("\n👉 Loading building outlines...")
+    outlines = load_building_outlines(
+        args.building_dir, args.building_layer_name, grass_module=Module
+    )
+
+    print(f"\n👉 Creating {args.buffer_distance}m buffer around buildings...")
+    buffered_outlines = create_buffered_buildings(
+        building_vector=outlines,
+        buffer_distance=args.buffer_distance,
+        output_name=f"{args.building_layer_name}_buffered",
+        grass_module=Module,
+    )
+
     print("\n👉 Calculating slope and aspect...")
     aspect, slope = calculate_slope_aspect_rasters(
         dsm=virtual_raster, grass_module=Module
@@ -213,12 +234,7 @@ def main():
         export=args.export_rasters,
     )
 
-    print("\n👉 Loading building outlines...")
-    outlines = load_building_outlines(
-        args.building_dir, args.building_layer_name, grass_module=Module
-    )
-
-    print("\n👉 Calculating solar irradiance on buildings...")
+    print("\n👉 Masking solar irradiance to building footprints...")
     solar_on_buildings = calculate_outline_raster(
         solar_irradiance_raster=solar_irradiance,
         building_vector=outlines,

@@ -32,6 +32,39 @@ def load_building_outlines(shapefile: str, output_name: str, grass_module: Any) 
     return output_name
 
 
+def create_buffered_buildings(
+    building_vector: str,
+    buffer_distance: float,
+    output_name: str,
+    grass_module: Any,
+) -> str:
+    """Create a buffered vector around building outlines.
+
+    This function uses the `v.buffer` GRASS module to expand building footprints
+    by a specified distance. This is useful for including surrounding terrain
+    features (e.g., nearby mountains) in solar radiation calculations while
+    still restricting computation to a bounded area.
+
+    Args:
+        building_vector: Name of the building footprint vector in GRASS.
+        buffer_distance: Buffer distance in meters.
+        output_name: Name for the output buffered vector.
+        grass_module: The GRASS Python scripting Module class.
+
+    Returns:
+        The name of the buffered vector.
+    """
+    grass_module(
+        "v.buffer",
+        input=building_vector,
+        output=output_name,
+        distance=buffer_distance,
+        overwrite=True,
+    ).run()
+
+    return output_name
+
+
 def apply_building_mask(building_vector: str, grass_module: Any) -> None:
     """Apply a raster mask based on building outlines.
 
@@ -139,9 +172,8 @@ def export_final_raster(
     )
     i_group.run()
 
-    # TFW = World File containing georeferencing info
-    # LZW = Lempel-Ziv-Welch lossless compression algorithm
-    r_out_multiband = grass_module(
+    # Export the group as a GeoTIFF with LZW compression
+    r_out = grass_module(
         "r.out.gdal",
         input=group_name,
         output=output_tif,
@@ -149,15 +181,9 @@ def export_final_raster(
         createopt="TFW=YES,COMPRESS=LZW",
         overwrite=True,
     )
-    r_out_multiband.run()
+    r_out.run()
 
-    # Clean up the temporary group to avoid leaving workspace state behind.
-    g_remove = grass_module(
-        "g.remove",
-        type="group",
-        name=group_name,
-        flags="f",  # force removal without extra prompts
-    )
-    g_remove.run()
+    # Clean up the temporary group
+    grass_module("i.group", group=group_name, flags="r").run()
 
     return output_tif
