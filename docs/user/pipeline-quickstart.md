@@ -67,7 +67,7 @@ With Docker ready, you can now launch the processing pipeline. This process down
 ```bash
 # Ensure you are in the project root directory (i.e. go back up one level if you were in scripts/ or src/)
 
-docker compose --env-file configs/shotover.env up pipeline
+docker compose --env-file configs/suburb_ShotoverCountry.env up pipeline
 ```
 You will see logs in your terminal as the `pipeline.sh` script executes.
 
