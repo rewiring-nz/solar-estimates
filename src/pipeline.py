@@ -365,10 +365,10 @@ def main():
     print(f"\n\n\n{' ✅ COMPLETE ✅ ':=^{logging_terminal_width}}")
     print("\n⌛️ " + generate_duration_message(elapsed_time))
     print(
-        f"\n💾 The INPUT_DSM_GLOB TIF files used were {input_dsm_glob_tif_size_MB:.2f} MB total."
+        f"💾 The INPUT_DSM_GLOB TIF files used were {input_dsm_glob_tif_size_MB:.2f} MB total."
     )
     print(
-        f"\n💾 The INPUT_BUILDING_DIR files used were {input_building_dir_size_MB:.3f} MB total."
+        f"💾 The INPUT_BUILDING_DIR files used were {input_building_dir_size_MB:.3f} MB total."
     )
 
 
