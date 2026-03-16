@@ -19,12 +19,12 @@ __pycache__/
 *.shx
 
 # Exclude all data except quickstart example
-!src/data/inputs/building_outlines/district_QueenstownLakes/*
-!src/data/inputs/DSM/suburb_ShotoverCountry/*
-!src/data/inputs/building_outlines/suburb_MolesworthStation/*
-!src/data/inputs/DEM/suburb_MolesworthStation/*
-!src/data/inputs/DSM/suburb_MolesworthStation/*
-!src/data/**/.gitignore
+!data/inputs/building_outlines/district_QueenstownLakes/*
+!data/inputs/DSM/suburb_ShotoverCountry/*
+!data/inputs/building_outlines/suburb_MolesworthStation/*
+!data/inputs/DEM/suburb_MolesworthStation/*
+!data/inputs/DSM/suburb_MolesworthStation/*
+!data/**/.gitignore
 
 # Other data formats
 *.csv
