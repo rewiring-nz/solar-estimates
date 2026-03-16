@@ -20,18 +20,18 @@ services:
       dockerfile: Dockerfile
       platforms:
         - linux/amd64
+    env_file:
+      - ${ENV_FILE:-configs/suburb_ShotoverCountry.env} # Default if not specified
     platform: linux/amd64
     container_name: nz_solar_pipeline
     
-    # Mount local directories for seamless development and persistence
     volumes:
-      # Mount the entire project root. Changes to your code are instantly reflected.
-      # Local root (where docker-compose.yml is) -> Container's /app
       - .:/app
-      
-      # Persist the GRASS database (grassdata) using a Docker named volume.
-      # GRASS data is now expected in /app/src/grassdata
+      # lock down inputs data as read-only (data/outputs need to still be written to)
+      - ./data/inputs:/app/data/inputs:ro
+      # GRASS DB
       - grass_db:/app/src/grassdata
+
     # Pipeline arguments are passed via the env file that is specified by the --env-file flag.
     # Paths are relative to the WORKDIR /app/src defined in the Dockerfile.
     command: >
