@@ -10,6 +10,10 @@ solar irradiance) together with slope and aspect bands.
 
 from typing import Any, Optional
 
+from utils.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 def load_building_outlines(shapefile: str, output_name: str, grass_module: Any) -> str:
     """Import building outlines (vector) from a shapefile into GRASS.
@@ -71,7 +75,7 @@ def remove_masks(grass_module: Any) -> None:
         r_mask = grass_module("r.mask", flags="r")
         r_mask.run()
     except Exception as e:  # Don't break the workflow if it can't remove the mask
-        print(f"⚠️ Warning: error removing GRASS mask: {e}")
+        logger.warning("Error removing GRASS mask: %s", e)
 
 
 def calculate_outline_raster(

@@ -18,6 +18,10 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import xarray as xr
 
+from utils.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 from .building_outlines import apply_building_mask, remove_masks
 
 
@@ -223,7 +227,7 @@ def calculate_wrf_adjusted_per_day(
     for day, wrf_raster in wrf_day_rasters.items():
         # If coefficients are missing for a day, skip with a warning
         if day not in coefficient_rasters:
-            print(f"⚠️ Warning: No coefficient raster for day {day}, skipping")
+            logger.warning("No coefficient raster for day %s, skipping", day)
             continue
 
         coeff_raster = coefficient_rasters[day]
