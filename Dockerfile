@@ -44,23 +44,28 @@ RUN apt-get update \
 
 # --- PYTHON APPLICATION SETUP ---
 
-# Set the working directory inside the container to /app/src, matching the local structure
-WORKDIR /app/src
+# Set the working directory inside the container to the project root
+WORKDIR /app
 
 # Set Python 3.12 as the default for the container's 'python3' command
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
 
-# Create a virtual environment at /opt/venv
+# Set up virtual env
 RUN python3 -m venv /opt/venv
 
 # Add the venv's bin directory to the PATH environment variable
 # All subsequent RUN commands will now use the venv's python and pip
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy the contents of the local 'src/' directory to the working directory '/app/src'
-COPY src/ .
+# Copy stuff we need for build first
+COPY src/pyproject.toml ./src/
+COPY docs/index.md ./docs/index.md
 
 # Install Python dependencies AND documentation tools using the venv's pip
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir . \
+    && pip install --no-cache-dir ./src \
     && pip install --no-cache-dir mkdocs-material mkdocstrings[python]
+
+# Copy the other stuff, and a empty dir for data volume mount
+COPY src/ ./src/
+RUN mkdir -p /app/data

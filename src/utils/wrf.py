@@ -20,6 +20,7 @@ import xarray as xr
 
 from .building_outlines import apply_building_mask, remove_masks
 
+
 def _load_wrf_with_crs(nc_file_path: str, crs: str = "EPSG:4326") -> xr.Dataset:
     """Open a WRF NetCDF with xarray and attach a CRS using rioxarray.
 
@@ -40,7 +41,10 @@ def _load_wrf_with_crs(nc_file_path: str, crs: str = "EPSG:4326") -> xr.Dataset:
 
     return ds
 
-def _clip_raster_to_region(raster_name: str, output_name: str, grass_module: Any) -> str:
+
+def _clip_raster_to_region(
+    raster_name: str, output_name: str, grass_module: Any
+) -> str:
     """Clip/copy a GRASS raster to the current computational region.
 
     This helper produces a new raster whose values match `raster_name` but
@@ -63,6 +67,7 @@ def _clip_raster_to_region(raster_name: str, output_name: str, grass_module: Any
     r_mapcalc.run()
 
     return output_name
+
 
 def _import_wrf_to_grass(
     wrf_dataset: xr.Dataset,
@@ -156,7 +161,12 @@ def _import_wrf_to_grass(
 
     return imported_rasters
 
-def _sum_wrf_rasters(wrf_rasters: Union[Dict[int, str], Iterable[str]], output_name: str, grass_module: Any) -> str:
+
+def _sum_wrf_rasters(
+    wrf_rasters: Union[Dict[int, str], Iterable[str]],
+    output_name: str,
+    grass_module: Any,
+) -> str:
     """Sum multiple WRF day rasters into a single total raster using r.mapcalc.
 
     This function constructs an expression like:
@@ -176,7 +186,7 @@ def _sum_wrf_rasters(wrf_rasters: Union[Dict[int, str], Iterable[str]], output_n
         raster_list = list(wrf_rasters)
 
     if not raster_list:
-        raise ValueError("No WRF rasters provided to sum.")
+        raise ValueError("🚫 No WRF rasters provided to sum.")
 
     raster_sum = " + ".join(raster_list)
     expression = f"{output_name} = {raster_sum}"
@@ -185,6 +195,7 @@ def _sum_wrf_rasters(wrf_rasters: Union[Dict[int, str], Iterable[str]], output_n
     r_mapcalc.run()
 
     return output_name
+
 
 def calculate_wrf_adjusted_per_day(
     wrf_day_rasters: Dict[int, str],
@@ -212,7 +223,7 @@ def calculate_wrf_adjusted_per_day(
     for day, wrf_raster in wrf_day_rasters.items():
         # If coefficients are missing for a day, skip with a warning
         if day not in coefficient_rasters:
-            print(f"Warning: No coefficient raster for day {day}, skipping")
+            print(f"⚠️ Warning: No coefficient raster for day {day}, skipping")
             continue
 
         coeff_raster = coefficient_rasters[day]
@@ -229,6 +240,7 @@ def calculate_wrf_adjusted_per_day(
         adjusted_rasters[day] = output_name
 
     return adjusted_rasters
+
 
 def sum_adjusted_rasters(
     adjusted_rasters: Union[Dict[int, str], Iterable[str]],
@@ -275,6 +287,7 @@ def sum_adjusted_rasters(
 
     return output_name
 
+
 def calculate_wrf_on_buildings(
     wrf_summed_raster: str, building_vector: str, output_name: str, grass_module: Any
 ) -> str:
@@ -303,8 +316,11 @@ def calculate_wrf_on_buildings(
 
     return output_name
 
+
 def cleanup_wrf_intermediates(
-    day_rasters: Union[Dict[int, str], Iterable[str]], summed_raster: Optional[str], grass_module: Any
+    day_rasters: Union[Dict[int, str], Iterable[str]],
+    summed_raster: Optional[str],
+    grass_module: Any,
 ) -> None:
     """Remove intermediate WRF rasters from the GRASS mapset.
 
@@ -322,10 +338,15 @@ def cleanup_wrf_intermediates(
         raster_list = list(day_rasters)
 
     for raster in raster_list:
-        grass_module("g.remove", type="raster", name=raster, flags="f", quiet=True).run()
+        grass_module(
+            "g.remove", type="raster", name=raster, flags="f", quiet=True
+        ).run()
 
     if summed_raster:
-        grass_module("g.remove", type="raster", name=summed_raster, flags="f", quiet=True).run()
+        grass_module(
+            "g.remove", type="raster", name=summed_raster, flags="f", quiet=True
+        ).run()
+
 
 def process_wrf_for_grass(
     nc_file_path: str,
@@ -379,7 +400,9 @@ def process_wrf_for_grass(
         # Convert to a sorted list of unique dayofyear integers present in dataset
         days = sorted(int(d) for d in xr.DataArray(wrf_ds["dayofyear"]).values)
 
-    imported_rasters = _import_wrf_to_grass(wrf_ds, output_prefix, grass_module, days, clip_to_raster)
+    imported_rasters = _import_wrf_to_grass(
+        wrf_ds, output_prefix, grass_module, days, clip_to_raster
+    )
 
     # Sum imported daily rasters into a single total raster
     summed_raster_name = f"{output_prefix}_total"

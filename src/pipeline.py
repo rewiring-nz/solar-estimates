@@ -6,6 +6,8 @@ CLI tool for estimating solar irradiance on buildings from digital surface model
 import argparse
 import platform
 import sys
+import time
+import shutil
 from pathlib import Path
 
 from utils.building_outlines import (
@@ -21,6 +23,7 @@ from utils.dsm import (
     merge_rasters,
 )
 from utils.grass_utils import setup_grass
+from utils.misc import calculate_tif_size_MB, generate_duration_message, get_dir_size_MB
 from utils.solar_irradiance import (
     calculate_solar_coefficients,
     calculate_solar_irradiance_interpolated,
@@ -137,13 +140,16 @@ def parse_args():
 
 
 def main():
+    start_time = time.perf_counter()
+    logging_terminal_width = shutil.get_terminal_size(fallback=(80, 24)).columns
+
     args = parse_args()
 
     # Validate inputs
     if not Path(args.building_dir).exists():
         if not Path(f"{args.building_dir}.zip").exists():
             print(
-                f"Error: Building directory does not exist: {args.building_dir}",
+                f"🚫 Error: Building directory does not exist: {args.building_dir}",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -154,39 +160,49 @@ def main():
         grass_base = detect_grass_base()
         if grass_base is None:
             print(
-                f"Error: Could not auto-detect GRASS GIS installation for {platform.system()}. "
+                f"🚫 Error: Could not auto-detect GRASS GIS installation for {platform.system()}. "
                 "Please provide --grass-base argument.",
                 file=sys.stderr,
             )
             sys.exit(1)
         print(f"Auto-detected GRASS GIS at: {grass_base}")
 
-    # Set up GRASS environment
-    print(f"Setting up GRASS GIS from: {grass_base}")
+    # Set up environment
+    print(f"\n\n\n{' 🔧 SETTING UP ENVIRONMENT 🔧 ':=^{logging_terminal_width}}")
+
+    print(f"\n👉 Setting up GRASS GIS from: {grass_base}")
     gscript, Module = setup_grass(gisbase=grass_base)
 
+    print("\n👉 Creating output dir...")
+    output_dir = Path(f"data/outputs/{args.area_name}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     # Main workflow
-    print("Removing existing masks...")
+    print(f"\n\n\n{' 💿 LOADING DATA 💿 ':=^{logging_terminal_width}}")
+
+    print("\n👉 Removing existing masks...")
     remove_masks(grass_module=Module)
 
-    print(f"Merging rasters from: {args.dsm_glob}")
+    print(f"\n👉 Merging rasters from: {args.dsm_glob}")
     merged_virtual_raster = merge_rasters(
-        dsm_file_glob=args.dsm_glob, area_name=args.area_name
+        dsm_file_glob=args.dsm_glob, area_name=args.area_name, output_dir=output_dir
     )
 
-    print("Loading virtual raster into GRASS...")
+    print("\n👉 Loading virtual raster into GRASS...")
     virtual_raster = load_virtual_raster_into_grass(
         input_vrt=merged_virtual_raster,
         output_name=f"{args.area_name}_dsm",
         grass_module=Module,
     )
 
-    print("Calculating slope and aspect...")
+    print(f"\n\n\n{' 😎 CALCULATING SOLAR IRRADIANCE 😎 ':=^{logging_terminal_width}}")
+
+    print("\n👉 Calculating slope and aspect...")
     aspect, slope = calculate_slope_aspect_rasters(
         dsm=virtual_raster, grass_module=Module
     )
 
-    print(f"Calculating solar irradiance (interpolated) for days: {args.key_days}")
+    print(f"\n👉 Calculating solar irradiance (interpolated) for days: {args.key_days}")
     day_irradiance_rasters, solar_irradiance = calculate_solar_irradiance_interpolated(
         dsm=virtual_raster,
         aspect=aspect,
@@ -197,12 +213,12 @@ def main():
         export=args.export_rasters,
     )
 
-    print("Loading building outlines...")
+    print("\n👉 Loading building outlines...")
     outlines = load_building_outlines(
         args.building_dir, args.building_layer_name, grass_module=Module
     )
 
-    print("Calculating solar irradiance on buildings...")
+    print("\n👉 Calculating solar irradiance on buildings...")
     solar_on_buildings = calculate_outline_raster(
         solar_irradiance_raster=solar_irradiance,
         building_vector=outlines,
@@ -210,7 +226,7 @@ def main():
         grass_module=Module,
     )
 
-    print(f"Filtering by slope (max: {args.max_slope}°)...")
+    print(f"\n👉 Filtering by slope (max: {args.max_slope}°)...")
     solar_on_buildings_filtered = filter_raster_by_slope(
         input_raster=solar_on_buildings,
         slope_raster=slope,
@@ -224,30 +240,16 @@ def main():
     wrf_adjusted = None
 
     if args.wrf_file:
-        # Clip irradiance rasters to buildings before normalization
-        print("Clipping irradiance rasters to buildings for coefficient calculation...")
-        rooftop_day_irradiance_rasters = {}
-        for day, irradiance_raster in day_irradiance_rasters.items():
-            rooftop_raster = f"{irradiance_raster}_on_buildings"
-            rooftop_raster_name = calculate_outline_raster(
-                solar_irradiance_raster=irradiance_raster,
-                building_vector=outlines,
-                output_name=rooftop_raster,
-                grass_module=Module,
-            )
-            rooftop_day_irradiance_rasters[day] = rooftop_raster_name
+        print(f"\n\n\n{' 🌦️ INCORPORATING WEATHER 🌦️ ':=^{logging_terminal_width}}")
 
-        # Calculate percent-of-max solar coefficients (after clipping)
-        print(
-            "Calculating per-day solar coefficients (percent-of-max, rooftop only)..."
-        )
+        print("\n👉 Calculating per-day solar coefficients...")
         day_coefficient_rasters = calculate_solar_coefficients(
             day_irradiance_rasters=rooftop_day_irradiance_rasters,
             dsm=virtual_raster,
             grass_module=Module,
         )
 
-        print(f"Processing WRF data from: {args.wrf_file}")
+        print(f"\n👉 Processing WRF data from: {args.wrf_file}")
         wrf_day_rasters, wrf_summed = process_wrf_for_grass(
             nc_file_path=args.wrf_file,
             output_prefix="wrf_swdown",
@@ -259,8 +261,8 @@ def main():
             print_diagnostics=False,
         )
 
-        # Apply per-day percent-of-max coefficients to WRF rasters
-        print("Applying per-day percent-of-max solar coefficients to WRF data...")
+        # Apply per-day coefficients to WRF rasters
+        print("\n👉 Applying per-day solar coefficients to WRF data...")
         adjusted_day_rasters = calculate_wrf_adjusted_per_day(
             wrf_day_rasters=wrf_day_rasters,
             coefficient_rasters=day_coefficient_rasters,
@@ -269,7 +271,7 @@ def main():
         )
 
         # Sum the per-day adjusted rasters
-        print("Summing adjusted WRF rasters...")
+        print("\n👉 Summing adjusted WRF rasters...")
         adjusted_raster_list = list(adjusted_day_rasters.values())
         wrf_adjusted_total = "wrf_adjusted_total"
         Module(
@@ -281,7 +283,7 @@ def main():
         ).run()
 
         # Apply building mask to get WRF on buildings
-        print("Calculating WRF on buildings...")
+        print("\n👉 Calculating WRF on buildings...")
         wrf_adjusted = calculate_wrf_on_buildings(
             wrf_summed_raster=wrf_adjusted_total,
             building_vector=outlines,
@@ -306,7 +308,7 @@ def main():
 
         # Export the adjusted WRF raster if requested
         if args.export_rasters:
-            print("Exporting WRF adjusted raster...")
+            print("\n👉 Exporting WRF adjusted raster...")
             Module(
                 "r.out.gdal",
                 input=wrf_adjusted,
@@ -317,7 +319,9 @@ def main():
             ).run()
 
     # Clean up per-day irradiance and coefficient rasters
-    print("Cleaning up intermediate rasters...")
+    print(f"\n\n\n{' 📤 PACKAGING & EXPORTING OUTPUTS 📤 ':=^{logging_terminal_width}}")
+
+    print("\n👉 Cleaning up intermediate rasters...")
     Module(
         "g.remove",
         type="raster",
@@ -334,7 +338,7 @@ def main():
         ).run()
 
     if args.export_rasters:
-        print("Exporting final raster...")
+        print("\n👉 Exporting final raster...")
         export_final_raster(
             raster_name=solar_on_buildings_filtered,
             slope=slope,
@@ -343,17 +347,29 @@ def main():
             grass_module=Module,
         )
 
-    print("Generating statistics...")
+    print("\n👉 Generating statistics...")
     create_stats(
         area=args.area_name,
         building_outlines=outlines,
+        output_dir=output_dir,
         rooftop_raster=f"{args.output_prefix}_filtered",
         wrf_raster=wrf_adjusted,
         output_csv=True,
         grass_module=Module,
     )
 
-    print("Processing complete!")
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    input_dsm_glob_tif_size_MB = calculate_tif_size_MB(args.dsm_glob)
+    input_building_dir_size_MB = get_dir_size_MB(args.building_dir)
+    print(f"\n\n\n{' ✅ COMPLETE ✅ ':=^{logging_terminal_width}}")
+    print("\n⌛️ " + generate_duration_message(elapsed_time))
+    print(
+        f"💾 The INPUT_DSM_GLOB TIF files used were {input_dsm_glob_tif_size_MB:.2f} MB total."
+    )
+    print(
+        f"💾 The INPUT_BUILDING_DIR files used were {input_building_dir_size_MB:.3f} MB total."
+    )
 
 
 if __name__ == "__main__":

@@ -65,19 +65,19 @@ sudo ./setup-docker.sh
 With Docker ready, you can now launch the processing pipeline. This process downloads required images and runs the analysis, which may take several minutes.
 
 ```bash
-# Ensure you are in the project root directory (i.e. go back up one level if you were in scripts/)
+# Ensure you are in the project root directory (i.e. go back up one level if you were in scripts/ or src/)
 
-docker compose up pipeline
+docker compose --env-file configs/suburb_ShotoverCountry.env up pipeline
 ```
 You will see logs in your terminal as the `pipeline.sh` script executes.
 
-Once finished, observe that you have created the following files in the `solar-estimates/src/` directory:
+Once finished, observe that you have created the following files in the `solar-estimates/src/data/outputs/OUTPUT_AREA_NAME/` directory:
 
 | File | Layer Type |
 | :--- | :--- |
-| `shotover_country_building_stats.gpkg` | **GeoPackage:** A spatial database containing a layer of building polygons and their solar attributes. |
-| `shotover_country_merged.vrt` | **Virtual Raster:** A wrapper to multiple solar irradiation tiles. |
-| `shotover_country_building_stats.csv` | **Tabular Data:** A spreadsheet of building solar attributes. |
+| `suburb_ShotoverCountry_building_stats.gpkg` | **GeoPackage:** A spatial database containing a layer of building polygons and their solar attributes. |
+| `suburb_ShotoverCountry_merged.vrt` | **Virtual Raster:** A wrapper to multiple solar irradiation tiles. |
+| `suburb_ShotoverCountry_building_stats.csv` | **Tabular Data:** A spreadsheet of building solar attributes. |
 
 ## 4: Stop and Clean Up
 
