@@ -24,16 +24,19 @@ services:
       - ${ENV_FILE:-configs/suburb_ShotoverCountry.env} # Default if not specified
     platform: linux/amd64
     container_name: nz_solar_pipeline
-    
+
+    # Set the working directory to the project root.
+    working_dir: /app
+
     volumes:
       - .:/app
       # lock down inputs data as read-only (data/outputs need to still be written to)
       - ./data/inputs:/app/data/inputs:ro
       # GRASS DB
-      - grass_db:/app/src/grassdata
+      - grass_db:/app/grassdata
 
     # Pipeline arguments are passed via the env file that is specified by the --env-file flag.
-    # Paths are relative to the WORKDIR /app/src defined in the Dockerfile.
+    # Paths are relative to the project root /app.
     command: >
       /opt/venv/bin/python /app/src/pipeline.py
       --dsm-glob "${INPUT_DSM_GLOB}"

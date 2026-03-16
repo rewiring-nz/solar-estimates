@@ -44,7 +44,7 @@ RUN apt-get update \
 
 # --- PYTHON APPLICATION SETUP ---
 
-# Set the working directory inside the container to /app/src, matching the local structure
+# Set the working directory inside the container to the project root
 WORKDIR /app
 
 # Set Python 3.12 as the default for the container's 'python3' command
