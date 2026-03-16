@@ -32,15 +32,10 @@ services:
       # Persist the GRASS database (grassdata) using a Docker named volume.
       # GRASS data is now expected in /app/src/grassdata
       - grass_db:/app/src/grassdata
-    # Pipeline arguments are passed via the env file that is specified by the --env-file flag.
+    # All pipeline arguments are configured via environment variables (PIPELINE_* prefix).
+    # Pass a config file with: docker compose --env-file configs/my-config.env up pipeline
     # Paths are relative to the WORKDIR /app/src defined in the Dockerfile.
-    command: >
-      /opt/venv/bin/python /app/src/pipeline.py
-      --dsm-glob "${INPUT_DSM_GLOB}"
-      --building-dir "${INPUT_BUILDING_DIR}"
-      --area-name "${OUTPUT_AREA_NAME}"
-      --building-layer-name "${OUTPUT_BUILDING_LAYER_NAME}"
-      --grass-base "/usr/lib/grass84"
+    command: python /app/src/pipeline.py
 
   # Run this with: `docker compose up docs`
   docs:

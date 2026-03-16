@@ -4,6 +4,7 @@ CLI tool for estimating solar irradiance on buildings from digital surface model
 """
 
 import argparse
+import os
 import platform
 import sys
 import time
@@ -55,25 +56,25 @@ def parse_args():
 
     parser.add_argument(
         "--dsm-glob",
-        default="data/shotover_country/*.tif",
+        default=None,
         help='Glob for DSM GeoTIFF files to use as inputs (default: "data/shotover_country/*.tif")',
     )
 
     parser.add_argument(
         "--building-dir",
-        default="data/queenstown_lakes_building_outlines",
+        default=None,
         help='Directory containing building outline shapefiles to use as inputs (default: "data/queenstown_lakes_building_outlines")',
     )
 
     parser.add_argument(
         "--area-name",
-        default="shotover_country",
+        default=None,
         help='Descriptive name for the area that will be used in outputs (default: "shotover_country")',
     )
 
     parser.add_argument(
         "--building-layer-name",
-        default="queenstown_lakes_buildings",
+        default=None,
         help='Name of the output building outline layer (default: "queenstown_lakes_buildings")',
     )
 
@@ -85,14 +86,14 @@ def parse_args():
 
     parser.add_argument(
         "--output-prefix",
-        default="solar_on_buildings",
+        default=None,
         help='Prefix for output files (default: "solar_on_buildings")',
     )
 
     parser.add_argument(
         "--max-slope",
         type=float,
-        default=45.0,
+        default=None,
         help="Maximum slope in degrees for filtering (default: 45.0)",
     )
 
@@ -100,14 +101,14 @@ def parse_args():
         "--key-days",
         type=int,
         nargs="+",
-        default=[1, 7],
+        default=None,
         help="Day numbers for solar irradiance calculation (default: 1, 7)",
     )
 
     parser.add_argument(
         "--time-step",
         type=float,
-        default=1.0,
+        default=None,
         help="Time step when computing all-day radiation sums in decimal hours (default: 1.0)",
     )
 
@@ -126,17 +127,101 @@ def parse_args():
 
     parser.add_argument(
         "--source-crs",
-        default="EPSG:4326",
+        default=None,
         help='Source CRS for WRF data (default: "EPSG:4326")',
     )
 
     parser.add_argument(
         "--target-crs",
-        default="EPSG:2193",
+        default=None,
         help='Target CRS for WRF reprojection (default: "EPSG:2193" - NZGD2000)',
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    # Apply environment variable fallbacks (PIPELINE_<ARG_NAME>).
+    # CLI arguments take precedence; env vars are used when no CLI arg is provided.
+    if args.dsm_glob is None:
+        args.dsm_glob = os.environ.get("PIPELINE_DSM_GLOB", "data/shotover_country/*.tif")
+
+    if args.building_dir is None:
+        args.building_dir = os.environ.get(
+            "PIPELINE_BUILDING_DIR", "data/queenstown_lakes_building_outlines"
+        )
+
+    if args.area_name is None:
+        args.area_name = os.environ.get("PIPELINE_AREA_NAME", "shotover_country")
+
+    if args.building_layer_name is None:
+        args.building_layer_name = os.environ.get(
+            "PIPELINE_BUILDING_LAYER_NAME", "queenstown_lakes_buildings"
+        )
+
+    if args.grass_base is None:
+        args.grass_base = os.environ.get("PIPELINE_GRASS_BASE")
+
+    if args.output_prefix is None:
+        args.output_prefix = os.environ.get("PIPELINE_OUTPUT_PREFIX", "solar_on_buildings")
+
+    if args.max_slope is None:
+        env_val = os.environ.get("PIPELINE_MAX_SLOPE")
+        if env_val is not None:
+            try:
+                args.max_slope = float(env_val)
+            except ValueError:
+                print(
+                    f"🚫 Error: PIPELINE_MAX_SLOPE must be a valid number, got: {env_val!r}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+        else:
+            args.max_slope = 45.0
+
+    if args.key_days is None:
+        env_val = os.environ.get("PIPELINE_KEY_DAYS")
+        if env_val is not None:
+            try:
+                args.key_days = [int(d) for d in env_val.split()]
+            except ValueError:
+                print(
+                    f"🚫 Error: PIPELINE_KEY_DAYS must be space-separated integers, got: {env_val!r}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+        else:
+            args.key_days = [1, 7]
+
+    if args.time_step is None:
+        env_val = os.environ.get("PIPELINE_TIME_STEP")
+        if env_val is not None:
+            try:
+                args.time_step = float(env_val)
+            except ValueError:
+                print(
+                    f"🚫 Error: PIPELINE_TIME_STEP must be a valid number, got: {env_val!r}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+        else:
+            args.time_step = 1.0
+
+    if not args.export_rasters:
+        args.export_rasters = os.environ.get("PIPELINE_EXPORT_RASTERS", "").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
+
+    if args.wrf_file is None:
+        args.wrf_file = os.environ.get("PIPELINE_WRF_FILE")
+
+    if args.source_crs is None:
+        args.source_crs = os.environ.get("PIPELINE_SOURCE_CRS", "EPSG:4326")
+
+    if args.target_crs is None:
+        args.target_crs = os.environ.get("PIPELINE_TARGET_CRS", "EPSG:2193")
+
+    return args
 
 
 def main():

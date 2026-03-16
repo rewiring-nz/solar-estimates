@@ -115,6 +115,38 @@ python3 pipeline.py \
   --export-rasters
 ```
 
+### Environment variable configuration
+
+All pipeline arguments can also be set via environment variables using the `PIPELINE_` prefix. This is the recommended approach when running via Docker, as it allows all options to be configured through env files in `configs/`.
+
+CLI arguments always take precedence over environment variables.
+
+| Environment variable | Equivalent CLI argument | Example value |
+|---|---|---|
+| `PIPELINE_DSM_GLOB` | `--dsm-glob` | `data/inputs/DSM/suburb_ShotoverCountry/*.tif` |
+| `PIPELINE_BUILDING_DIR` | `--building-dir` | `data/inputs/building_outlines/district_QueenstownLakes` |
+| `PIPELINE_AREA_NAME` | `--area-name` | `suburb_ShotoverCountry` |
+| `PIPELINE_BUILDING_LAYER_NAME` | `--building-layer-name` | `queenstown_lakes_buildings` |
+| `PIPELINE_GRASS_BASE` | `--grass-base` | `/usr/lib/grass84` |
+| `PIPELINE_OUTPUT_PREFIX` | `--output-prefix` | `solar_on_buildings` |
+| `PIPELINE_MAX_SLOPE` | `--max-slope` | `45.0` |
+| `PIPELINE_KEY_DAYS` | `--key-days` | `1 7` (space-separated) |
+| `PIPELINE_TIME_STEP` | `--time-step` | `1.0` |
+| `PIPELINE_EXPORT_RASTERS` | `--export-rasters` | `true` / `1` / `yes` |
+| `PIPELINE_WRF_FILE` | `--wrf-file` | `data/inputs/weather/swdown.nc` |
+| `PIPELINE_SOURCE_CRS` | `--source-crs` | `EPSG:4326` |
+| `PIPELINE_TARGET_CRS` | `--target-crs` | `EPSG:2193` |
+
+```bash
+# Run via Docker using a config file
+docker compose --env-file configs/suburb_ShotoverCountry.env up pipeline
+
+# Run directly using environment variables
+PIPELINE_EXPORT_RASTERS=true PIPELINE_MAX_SLOPE=50.0 python3 pipeline.py
+```
+
+See `configs/example.env` for a comprehensive template with documentation for all options.
+
 ### Command-line arguments
 
 | Argument | Required | Default | Description |
