@@ -25,6 +25,9 @@ services:
     platform: linux/amd64
     container_name: nz_solar_pipeline
     
+    # Explicitly set working directory to project root so relative paths in env files resolve correctly,
+    # even if the Docker image was built with an older WORKDIR.
+    working_dir: /app
     volumes:
       - .:/app
       # lock down inputs data as read-only (data/outputs need to still be written to)
@@ -33,7 +36,7 @@ services:
       - grass_db:/app/src/grassdata
 
     # Pipeline arguments are passed via the env file that is specified by the --env-file flag.
-    # Paths are relative to the WORKDIR /app/src defined in the Dockerfile.
+    # Paths are relative to the project root /app.
     command: >
       /opt/venv/bin/python /app/src/pipeline.py
       --dsm-glob "${INPUT_DSM_GLOB}"
