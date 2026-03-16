@@ -244,7 +244,7 @@ def main():
 
         print("\n👉 Calculating per-day solar coefficients...")
         day_coefficient_rasters = calculate_solar_coefficients(
-            day_irradiance_rasters=day_irradiance_rasters,
+            day_irradiance_rasters=rooftop_day_irradiance_rasters,
             dsm=virtual_raster,
             grass_module=Module,
         )
