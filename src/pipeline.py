@@ -23,7 +23,7 @@ from utils.dsm import (
     merge_rasters,
 )
 from utils.grass_utils import setup_grass
-from utils.misc import generate_duration_message
+from utils.misc import calculate_tif_size_MB, generate_duration_message, get_dir_size_MB
 from utils.solar_irradiance import (
     calculate_solar_coefficients,
     calculate_solar_irradiance_interpolated,
@@ -360,8 +360,16 @@ def main():
 
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
+    input_dsm_glob_tif_size_MB = calculate_tif_size_MB(args.dsm_glob)
+    input_building_dir_size_MB = get_dir_size_MB(args.building_dir)
     print(f"\n\n\n{' ✅ COMPLETE ✅ ':=^{logging_terminal_width}}")
     print("\n⌛️ " + generate_duration_message(elapsed_time))
+    print(
+        f"\n💾 The INPUT_DSM_GLOB TIF files used were {input_dsm_glob_tif_size_MB:.2f} MB total."
+    )
+    print(
+        f"\n💾 The INPUT_BUILDING_DIR files used were {input_building_dir_size_MB:.3f} MB total."
+    )
 
 
 if __name__ == "__main__":
