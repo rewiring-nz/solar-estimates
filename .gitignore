@@ -21,6 +21,7 @@ __pycache__/
 # Exclude all data except quickstart example
 !src/data/inputs/building_outlines/district_QueenstownLakes/*
 !src/data/inputs/DSM/suburb_ShotoverCountry/*
+!src/data/inputs/Molesworth/*
 !src/data/**/.gitignore
 
 # Other data formats
