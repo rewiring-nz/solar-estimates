@@ -39,34 +39,33 @@ For accurate solar modeling (including roof pitch and shading from chimneys or t
 
 ## 2. Organising Your Data Folder
 
-To make your data accessible to the pipeline.py script in your Docker container, put it in the appropriate sub-folders within `src/data/inputs`. There are folders for different data types (e.g. buliding outlines, DSMs, weather). You should create a new sub-folder for data on new areas, named something like `district_YourDistrictHere`, `suburb_YourSuburbHere`, `region_*`, `electorate_*`, `ta_*` (territorial authority), or `nationwide`, to make it really clear exactly what is included in the data and what is not. Use `snake_case`, not `kebab-case`, for consistency (kebab case is reserved for other things in parts of the pipeline).
+To make your data accessible to the pipeline.py script in your Docker container, put it in the appropriate sub-folders within `data/inputs`. There are folders for different data types (e.g. buliding outlines, DSMs, weather). You should create a new sub-folder for data on new areas, named something like `district_YourDistrictHere`, `suburb_YourSuburbHere`, `region_*`, `electorate_*`, `ta_*` (territorial authority), or `nationwide`, to make it really clear exactly what is included in the data and what is not. Use `snake_case`, not `kebab-case`, for consistency (kebab case is reserved for other things in parts of the pipeline).
 
 The pipeline will calculate for the areas in the intersect of the building outlines and the DSMs provided. So they don't have to be exactly the same, e.g. you might have a DSM of just the suburb Shotover Country, but run it with building outlines for all of the Queenstown Lakes district.
 
 ```text
 solar-estimates/
-└── src/
-    └── data/
-        └── inputs/
-            └── building_outlines/
-                ├── district_MyCoolDistrict/
-                    ├── nz-building-outlines.cpg
-                    ├── nz-building-outlines.dbf
-                    ├── nz-building-outlines.prj
-                    ├── nz-building-outlines.shp
-                    ├── nz-building-outlines.shx
-                    ├── nz-building-outlines.txt
-                    └── nz-building-outlines.xml
-            └── DEM/
-            └── DSM/
-                └── district_MyCoolDistrict/
-                    ├── dsm_tile_1.tif
-                    ├── dsm_tile_1.tif.aux.xml
-                    ├── dsm_tile_2.tif
-                    └── dsm_tile_2.tif.aux.xml
-                    ...
-            └── weather/
-                └── nationwide/
+└── data/
+    └── inputs/
+        └── building_outlines/
+            ├── district_MyCoolDistrict/
+                ├── nz-building-outlines.cpg
+                ├── nz-building-outlines.dbf
+                ├── nz-building-outlines.prj
+                ├── nz-building-outlines.shp
+                ├── nz-building-outlines.shx
+                ├── nz-building-outlines.txt
+                └── nz-building-outlines.xml
+        └── DEM/
+        └── DSM/
+            └── district_MyCoolDistrict/
+                ├── dsm_tile_1.tif
+                ├── dsm_tile_1.tif.aux.xml
+                ├── dsm_tile_2.tif
+                └── dsm_tile_2.tif.aux.xml
+                ...
+        └── weather/
+            └── nationwide/
 ```
 
 
@@ -84,15 +83,14 @@ To run the pipeline script with your own data by pointing the docker container t
 docker compose --env-file configs/suburb_ShotoverCountry.env up pipeline
 ```
 
-The output will appear in the `src/data/outputs/OUTPUT_AREA_NAME` directory as defined in your config file, like this:
+The output will appear in the `data/outputs/OUTPUT_AREA_NAME` directory as defined in your config file, like this:
 
 ```text
 solar-estimates/
-└── src/
-    └── data/
-        └── outputs/
-            └── OUTPUT_AREA_NAME/
-                ├── OUTPUT_AREA_NAME_building_stats.csv
-                ├── OUTPUT_AREA_NAME_building_stats.gpkg
-                └── OUTPUT_AREA_NAME_merged.vrt
+└── data/
+    └── outputs/
+        └── OUTPUT_AREA_NAME/
+            ├── OUTPUT_AREA_NAME_building_stats.csv
+            ├── OUTPUT_AREA_NAME_building_stats.gpkg
+            └── OUTPUT_AREA_NAME_merged.vrt
 ```
