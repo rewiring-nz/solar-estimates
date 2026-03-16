@@ -32,8 +32,8 @@ services:
       - .:/app
       # lock down inputs data as read-only (data/outputs need to still be written to)
       - ./data/inputs:/app/data/inputs:ro
-      # GRASS DB
-      - grass_db:/app/src/grassdata
+      # GRASS DB — path must match the grassdata_dir used by setup_grass() ("grassdata" relative to working_dir /app)
+      - grass_db:/app/grassdata
 
     # Pipeline arguments are passed via the env file that is specified by the --env-file flag.
     # Paths are relative to the project root /app.
