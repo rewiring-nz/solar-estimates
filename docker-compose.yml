@@ -37,6 +37,7 @@ services:
 
     # Pipeline arguments are passed via the env file that is specified by the --env-file flag.
     # Paths are relative to the project root /app.
+
     command: >
       /opt/venv/bin/python /app/src/pipeline.py
       --dsm-glob "${INPUT_DSM_GLOB}"
@@ -44,6 +45,14 @@ services:
       --area-name "${OUTPUT_AREA_NAME}"
       --building-layer-name "${OUTPUT_BUILDING_LAYER_NAME}"
       --grass-base "/usr/lib/grass84"
+      ${OUTPUT_PREFIX:+--output-prefix "${OUTPUT_PREFIX}"}
+      ${MAX_SLOPE:+--max-slope "${MAX_SLOPE}"}
+      ${KEY_DAYS:+--key-days ${KEY_DAYS}}
+      ${TIME_STEP:+--time-step "${TIME_STEP}"}
+      ${EXPORT_RASTERS:+--export-rasters}
+      ${WRF_FILE:+--wrf-file "${WRF_FILE}"}
+      ${SOURCE_CRS:+--source-crs "${SOURCE_CRS}"}
+      ${TARGET_CRS:+--target-crs "${TARGET_CRS}"}
 
   # Run this with: `docker compose up docs`
   docs:
