@@ -32,3 +32,6 @@
 
 ### Linke Turbidity
 ::: utils.linke
+
+### Logging Configuration
+::: utils.logging_config
