@@ -9,6 +9,10 @@ import subprocess
 import sys
 from typing import Tuple
 
+from utils.logging_config import get_logger
+
+logger = get_logger(__name__)
+
 
 def setup_grass(
     gisbase: str,
@@ -58,10 +62,8 @@ def setup_grass(
         from grass.pygrass.modules import Module  # type: ignore
     except ImportError as e:
         # Provide diagnostic context before re-raising
-        print(
-            "🚫 Error importing GRASS Python modules. Check if dependencies are installed correctly."
-        )
-        print(f"GISBASE used: {gisbase}")
+        logger.error("Error importing GRASS Python modules. Check if dependencies are installed correctly.")
+        logger.error("GISBASE used: %s", gisbase)
         raise
 
     # Ensure the grassdata directory exists
@@ -72,7 +74,7 @@ def setup_grass(
     location_path = os.path.join(grassdata_dir, location)
     if not os.path.exists(location_path):
         cmd = ["grass", "--text", "-c", "EPSG:2193", location_path]
-        print(f"DEBUG: Attempting to create GRASS Location: {' '.join(cmd)}")
+        logger.debug("Attempting to create GRASS Location: %s", " ".join(cmd))
 
         proc = subprocess.Popen(
             cmd,
@@ -85,15 +87,12 @@ def setup_grass(
         out, err = proc.communicate("exit\n")
 
         if proc.returncode != 0:
-            # Print diagnostics and raise an error that includes output
-            print("\n!!! GRASS LOCATION CREATION FAILED !!!")
-            print(f"Command: {' '.join(cmd)}")
-            print(f"Return Code: {proc.returncode}")
-            print("\n--- GRASS STDOUT ---")
-            print(out)
-            print("\n--- GRASS STDERR ---")
-            print(err)
-            print("--------------------------------------\n")
+            # Log diagnostics and raise an error that includes output
+            logger.error("GRASS LOCATION CREATION FAILED")
+            logger.error("Command: %s", " ".join(cmd))
+            logger.error("Return Code: %s", proc.returncode)
+            logger.error("GRASS STDOUT: %s", out)
+            logger.error("GRASS STDERR: %s", err)
 
             raise subprocess.CalledProcessError(
                 proc.returncode,
