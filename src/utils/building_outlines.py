@@ -8,6 +8,7 @@ export final multi-band GeoTIFFs that include computed rasters (for example,
 solar irradiance) together with slope and aspect bands.
 """
 
+from pathlib import Path
 from typing import Any, Optional
 
 from utils.logging_config import get_logger
@@ -115,6 +116,7 @@ def export_final_raster(
     aspect: str,
     output_tif: str,
     grass_module: Any,
+    output_dir: Optional[Path] = None,
 ) -> str:
     """Export a multi-band GeoTIFF containing raster, slope, and aspect.
 
@@ -127,11 +129,15 @@ def export_final_raster(
         raster_name: Name of the primary raster to export (e.g., building-only GHI).
         slope: Name of the slope raster to include as a band.
         aspect: Name of the aspect raster to include as a band.
-        output_tif: Path for the output GeoTIFF file to create.
+        output_tif: Filename (or path) for the output GeoTIFF file to create.
+            If output_dir is provided, the file is written inside that directory.
         grass_module: The GRASS Python scripting Module class.
+        output_dir: Optional directory in which to write the output file.
+            When provided, output_tif is treated as a filename and joined with
+            output_dir to form the full path.
 
     Returns:
-        The `output_tif` path for convenience.
+        The full `output_tif` path for convenience.
     """
     # Create a temporary imagery group containing the three rasters. This groups
     # the rasters into a single multi-band dataset.
@@ -143,12 +149,18 @@ def export_final_raster(
     )
     i_group.run()
 
+    # Resolve the output path, writing into output_dir when provided.
+    if output_dir is not None:
+        output_path = str(Path(output_dir) / output_tif)
+    else:
+        output_path = output_tif
+
     # TFW = World File containing georeferencing info
     # LZW = Lempel-Ziv-Welch lossless compression algorithm
     r_out_multiband = grass_module(
         "r.out.gdal",
         input=group_name,
-        output=output_tif,
+        output=output_path,
         format="GTiff",
         createopt="TFW=YES,COMPRESS=LZW",
         overwrite=True,
@@ -164,4 +176,4 @@ def export_final_raster(
     )
     g_remove.run()
 
-    return output_tif
+    return output_path

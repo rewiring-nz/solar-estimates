@@ -203,6 +203,7 @@ def main():
         step=args.time_step,
         grass_module=Module,
         export=args.export_rasters,
+        output_dir=output_dir,
     )
 
     logger.info("Loading building outlines...")
@@ -298,7 +299,7 @@ def main():
             Module(
                 "r.out.gdal",
                 input=wrf_adjusted,
-                output=f"{args.area_name}_wrf_adjusted.tif",
+                output=str(output_dir / f"{args.area_name}_wrf_adjusted.tif"),
                 format="GTiff",
                 createopt="TFW=YES,COMPRESS=LZW",
                 overwrite=True,
@@ -328,6 +329,7 @@ def main():
             aspect=aspect,
             output_tif=f"{args.area_name}_solar_irradiance_on_buildings.tif",
             grass_module=Module,
+            output_dir=output_dir,
         )
 
     logger.info("Generating statistics...")

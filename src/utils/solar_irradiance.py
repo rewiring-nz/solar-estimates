@@ -11,7 +11,9 @@ The main workflow (if WRF data is provided) involves:
     3. Normalize to create coefficient rasters to adjust WRF data
 """
 
+from pathlib import Path
 from subprocess import PIPE
+from typing import Optional
 
 from .linke import linke_by_day
 
@@ -139,6 +141,7 @@ def calculate_solar_irradiance_interpolated(
     step: float,
     grass_module,
     export: bool = False,
+    output_dir: Optional[Path] = None,
 ) -> tuple[dict[int, str], str]:
     """Calculate interpolated solar irradiance between key sample days.
 
@@ -161,6 +164,9 @@ def calculate_solar_irradiance_interpolated(
         grass_module: The GRASS Python scripting Module class.
         export: If True, export the summed irradiance raster as a GeoTIFF.
             Defaults to False.
+        output_dir: Optional directory in which to write the exported GeoTIFF.
+            Only used when export is True.  When None, the file is written to
+            the current working directory.
 
     Returns:
         A tuple containing:
@@ -230,10 +236,15 @@ def calculate_solar_irradiance_interpolated(
 
     # Optionally export the summed raster as a GeoTIFF
     if export:
+        output_filename = f"{summed_irradiance}.tif"
+        if output_dir is not None:
+            output_path = str(Path(output_dir) / output_filename)
+        else:
+            output_path = output_filename
         grass_module(
             "r.out.gdal",
             input=summed_irradiance,
-            output=f"{summed_irradiance}.tif",
+            output=output_path,
             format="GTiff",
             createopt="TFW=YES,COMPRESS=LZW",
             overwrite=True,
