@@ -218,15 +218,64 @@ def combine_horizon_rasters(
     mountain ranges.
 
     Args:
-        local_horizon: GRASS raster name for the local horizon (from DSM).
-        regional_horizon: GRASS raster name for the regional horizon (from DEM).
+        local_horizon: GRASS raster name prefix for the local horizon (from DSM).
+                       r.horizon creates multiple rasters with this prefix.
+        regional_horizon: GRASS raster name prefix for the regional horizon (from DEM).
+                         r.horizon creates multiple rasters with this prefix.
         output_name: Name for the combined output raster.
         grass_module: The GRASS Python scripting Module class.
 
     Returns:
         The name of the combined horizon raster (same as ``output_name``).
     """
-    expression = f"{output_name} = max({local_horizon}, {regional_horizon})"
+    import subprocess
+    
+    # Get list of local horizon rasters by querying GRASS
+    local_list_output = subprocess.run(
+        ["g.list", "type=raster", f"pattern={local_horizon}*"],
+        capture_output=True,
+        text=True,
+    )
+    local_rasters = local_list_output.stdout.strip().split("\n")
+    local_rasters = [r for r in local_rasters if r]  # Remove empty strings
+
+    # Get list of regional horizon rasters by querying GRASS
+    regional_list_output = subprocess.run(
+        ["g.list", "type=raster", f"pattern={regional_horizon}*"],
+        capture_output=True,
+        text=True,
+    )
+    regional_rasters = regional_list_output.stdout.strip().split("\n")
+    regional_rasters = [r for r in regional_rasters if r]  # Remove empty strings
+
+    # Combine all azimuth directions within local horizon by taking max
+    if local_rasters:
+        local_combined = f"{local_horizon}_combined"
+        grass_module(
+            "r.series",
+            input=",".join(local_rasters),
+            output=local_combined,
+            method="maximum",
+            overwrite=True,
+        ).run()
+    else:
+        raise RuntimeError(f"No horizon rasters found matching pattern: {local_horizon}*")
+
+    # Combine all azimuth directions within regional horizon by taking max
+    if regional_rasters:
+        regional_combined = f"{regional_horizon}_combined"
+        grass_module(
+            "r.series",
+            input=",".join(regional_rasters),
+            output=regional_combined,
+            method="maximum",
+            overwrite=True,
+        ).run()
+    else:
+        raise RuntimeError(f"No horizon rasters found matching pattern: {regional_horizon}*")
+
+    # Finally, combine local and regional by taking the maximum of the two
+    expression = f"{output_name} = max({local_combined}, {regional_combined})"
     grass_module("r.mapcalc", expression=expression, overwrite=True).run()
 
     return output_name

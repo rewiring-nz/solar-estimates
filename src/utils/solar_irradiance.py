@@ -123,21 +123,35 @@ def calculate_solar_irradiance(
         This function assumes the GRASS computational region is already set
         appropriately for the DSM. The output units are Wh/m²/day.
     """
-    params = dict(
-        elevation=dsm,
-        aspect=aspect,
-        slope=slope,
-        day=day,
-        step=step,
-        linke_value=linke_by_day(day),
-        nprocs=16,
-        glob_rad=grass_output,
-        overwrite=True,
-    )
     if horizon is not None:
-        params["horizon"] = horizon
-    grass_module("r.sun", **params).run()
-
+        # Use horizon basename with -h flag for r.sun
+        grass_module(
+            "r.sun",
+            elevation=dsm,
+            aspect=aspect,
+            slope=slope,
+            day=day,
+            step=step,
+            linke_value=linke_by_day(day),
+            nprocs=16,
+            glob_rad=grass_output,
+            horizon=horizon,
+            flags="h",
+            overwrite=True,
+        ).run()
+    else:
+        grass_module(
+            "r.sun",
+            elevation=dsm,
+            aspect=aspect,
+            slope=slope,
+            day=day,
+            step=step,
+            linke_value=linke_by_day(day),
+            nprocs=16,
+            glob_rad=grass_output,
+            overwrite=True,
+        ).run()
     return grass_output
 
 
