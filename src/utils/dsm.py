@@ -10,11 +10,12 @@ High-level responsibilities:
   to a GeoTIFF).
 - Calculating slope and aspect rasters from a DSM.
 - Filtering rasters.
+- Pre-calculating horizon rasters for solar shading optimisation.
 """
 
 import glob
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Any, Optional, Tuple
 from osgeo import gdal
 
 
@@ -147,5 +148,85 @@ def filter_raster_by_slope(
     )
     r_mapcalc = grass_module("r.mapcalc", expression=expression, overwrite=True)
     r_mapcalc.run()
+
+    return output_name
+
+
+def calculate_horizon_raster(
+    elevation: str,
+    output_name: str,
+    grass_module: Any,
+    buffer_distance: float = 30.0,
+    start_azimuth: float = 315.0,
+    end_azimuth: float = 135.0,
+    azimuth_steps: int = 18,
+) -> str:
+    """Pre-calculate a horizon raster using GRASS `r.horizon`.
+
+    Computes the maximum horizon elevation angle (in degrees above horizontal)
+    for each cell in the given direction range.  By restricting the azimuth
+    range to the northern arc (315°→135°), only those directions from which the
+    sun can reach New Zealand are calculated, reducing computation by ~50 %
+    compared to a full 360° sweep.
+
+    Args:
+        elevation: Name of the input elevation raster (DSM or DEM) in GRASS.
+        output_name: Base name for the output horizon raster(s).
+        grass_module: The GRASS Python scripting Module class.
+        buffer_distance: Search radius in metres.  Use a small value (e.g. 30 m)
+            for a 1 m DSM to capture local building/tree shading, or a large
+            value (e.g. 10 000 m) for an 8 m DEM to capture distant mountain
+            shading.  Defaults to 30.
+        start_azimuth: Starting azimuth in degrees (clockwise from north).
+            Defaults to 315° (NW), the beginning of the NZ northern solar arc.
+        end_azimuth: Ending azimuth in degrees (clockwise from north).
+            Defaults to 135° (SE), the end of the NZ northern solar arc.
+        azimuth_steps: Number of discrete azimuth directions to calculate
+            within [start_azimuth, end_azimuth].  Defaults to 18 (≈10° spacing
+            over the ~180° NZ northern arc).
+
+    Returns:
+        The base name of the output horizon raster (same as ``output_name``).
+    """
+    step_size = (end_azimuth - start_azimuth) % 360 / azimuth_steps
+    grass_module(
+        "r.horizon",
+        elevation=elevation,
+        step=step_size,
+        bufferzone=buffer_distance,
+        output=output_name,
+        start=start_azimuth,
+        end=end_azimuth,
+        overwrite=True,
+    ).run()
+
+    return output_name
+
+
+def combine_horizon_rasters(
+    local_horizon: str,
+    regional_horizon: str,
+    output_name: str,
+    grass_module: Any,
+) -> str:
+    """Combine local and regional horizon rasters by taking the maximum angle.
+
+    For each cell the combined horizon is the higher of the two elevation
+    angles, i.e. the obstruction that blocks more sunlight wins.  The local
+    horizon (derived from a high-resolution DSM) captures buildings and trees,
+    while the regional horizon (derived from a coarser DEM) captures distant
+    mountain ranges.
+
+    Args:
+        local_horizon: GRASS raster name for the local horizon (from DSM).
+        regional_horizon: GRASS raster name for the regional horizon (from DEM).
+        output_name: Name for the combined output raster.
+        grass_module: The GRASS Python scripting Module class.
+
+    Returns:
+        The name of the combined horizon raster (same as ``output_name``).
+    """
+    expression = f"{output_name} = max({local_horizon}, {regional_horizon})"
+    grass_module("r.mapcalc", expression=expression, overwrite=True).run()
 
     return output_name
