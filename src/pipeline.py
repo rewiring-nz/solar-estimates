@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
-"""
-CLI tool for estimating solar irradiance on buildings from digital surface models.
+"""Estimate building-scale solar irradiance from DSM/DEM data.
+
+For coarse DEMs, `r.sun` and `r.slope.aspect` still run at the native raster
+resolution. Irradiance is then resampled once to `--output-resolution` for
+building masking and statistics. Slope filtering is skipped for coarse DEMs,
+while slope/aspect are only resampled when needed for aligned raster export.
 """
 
 import argparse
@@ -17,8 +21,10 @@ from utils.building_outlines import (
 from utils.dsm import (
     calculate_slope_aspect_rasters,
     filter_raster_by_slope,
+    get_raster_resolution,
     load_virtual_raster_into_grass,
     merge_rasters,
+    resample_to_resolution,
 )
 from utils.grass_utils import setup_grass
 from utils.solar_irradiance import (
@@ -46,26 +52,27 @@ def detect_grass_base():
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Estimate solar irradiance on buildings from DSM data",
+        description="Estimate solar irradiance on buildings from DSM/DEM data",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
     )
 
     parser.add_argument(
         "--dsm-glob",
         default="data/shotover_country/*.tif",
-        help='Glob for DSM GeoTIFF files to use as inputs (default: "data/shotover_country/*.tif")',
+        help='Glob for DSM/DEM GeoTIFF files (default: "data/shotover_country/*.tif")',
     )
 
     parser.add_argument(
         "--building-dir",
         default="data/queenstown_lakes_building_outlines",
-        help='Directory containing building outline shapefiles to use as inputs (default: "data/queenstown_lakes_building_outlines")',
+        help='Directory containing building outline shapefiles (default: "data/queenstown_lakes_building_outlines")',
     )
 
     parser.add_argument(
         "--area-name",
         default="shotover_country",
-        help='Descriptive name for the area that will be used in outputs (default: "shotover_country")',
+        help='Descriptive name for the area used in outputs (default: "shotover_country")',
     )
 
     parser.add_argument(
@@ -105,13 +112,29 @@ def parse_args():
         "--time-step",
         type=float,
         default=1.0,
-        help="Time step when computing all-day radiation sums in decimal hours (default: 1.0)",
+        help="Time step for all-day radiation sums in decimal hours (default: 1.0)",
     )
 
     parser.add_argument(
         "--export-rasters",
         action="store_true",
         help="Export rasters (solar irradiance, coefficient, WRF adjusted, final) as GeoTIFFs",
+    )
+
+    parser.add_argument(
+        "--output-resolution",
+        type=float,
+        default=1.0,
+        metavar="METRES",
+        help=(
+            "Resolution (m) for all downstream rasters after r.sun: building "
+            "masking, v.rast.stats, and exports. "
+            "r.sun and r.slope.aspect always run at the native DEM resolution. "
+            "When the DEM is coarser than this value (e.g. 100 m DEM, "
+            "--output-resolution 1), the irradiance raster is resampled once "
+            "using nearest-neighbour before building analysis. Coarse-DEM runs "
+            "skip slope filtering. Default: 1.0 m."
+        ),
     )
 
     # WRF-related arguments
@@ -139,7 +162,6 @@ def parse_args():
 def main():
     args = parse_args()
 
-    # Validate inputs
     if not Path(args.building_dir).exists():
         if not Path(f"{args.building_dir}.zip").exists():
             print(
@@ -148,24 +170,21 @@ def main():
             )
             sys.exit(1)
 
-    # Auto-detect or validate GRASS base path
     grass_base = args.grass_base
     if grass_base is None:
         grass_base = detect_grass_base()
         if grass_base is None:
             print(
-                f"Error: Could not auto-detect GRASS GIS installation for {platform.system()}. "
-                "Please provide --grass-base argument.",
+                f"Error: Could not auto-detect GRASS GIS installation for "
+                f"{platform.system()}. Please provide --grass-base argument.",
                 file=sys.stderr,
             )
             sys.exit(1)
         print(f"Auto-detected GRASS GIS at: {grass_base}")
 
-    # Set up GRASS environment
     print(f"Setting up GRASS GIS from: {grass_base}")
     gscript, Module = setup_grass(gisbase=grass_base)
 
-    # Main workflow
     print("Removing existing masks...")
     remove_masks(grass_module=Module)
 
@@ -180,6 +199,19 @@ def main():
         output_name=f"{args.area_name}_dsm",
         grass_module=Module,
     )
+
+    native_ewres, native_nsres = get_raster_resolution(virtual_raster, Module)
+    print(f"Native DEM resolution: EW={native_ewres} m, NS={native_nsres} m")
+
+    needs_resample = max(native_ewres, native_nsres) > args.output_resolution * 1.01
+    if needs_resample:
+        print(
+            f"DEM ({max(native_ewres, native_nsres):.1f} m) is coarser than "
+            f"--output-resolution ({args.output_resolution} m). "
+            "r.sun will run at native resolution; irradiance will be resampled "
+            "to output resolution before building stats, and slope filtering "
+            "will be skipped."
+        )
 
     print("Calculating slope and aspect...")
     aspect, slope = calculate_slope_aspect_rasters(
@@ -197,6 +229,21 @@ def main():
         export=args.export_rasters,
     )
 
+    if needs_resample:
+        print(
+            f"Resampling irradiance to {args.output_resolution} m "
+            "(nearest-neighbour)..."
+        )
+        solar_irradiance = resample_to_resolution(
+            input_raster=solar_irradiance,
+            target_resolution=args.output_resolution,
+            output_name=f"{solar_irradiance}_fine",
+            grass_module=Module,
+            method="nearest",
+        )
+        Module("g.region", raster=solar_irradiance, flags="p").run()
+        print(f"Region set to {args.output_resolution} m for all downstream steps.")
+
     print("Loading building outlines...")
     outlines = load_building_outlines(
         args.building_dir, args.building_layer_name, grass_module=Module
@@ -210,34 +257,34 @@ def main():
         grass_module=Module,
     )
 
-    print(f"Filtering by slope (max: {args.max_slope}°)...")
-    solar_on_buildings_filtered = filter_raster_by_slope(
-        input_raster=solar_on_buildings,
-        slope_raster=slope,
-        max_slope_degrees=args.max_slope,
-        output_name=f"{args.output_prefix}_filtered",
-        grass_module=Module,
-    )
+    if needs_resample:
+        print("Skipping slope filtering for coarse DEM input.")
+        solar_on_buildings_filtered = solar_on_buildings
+    else:
+        print(f"Filtering by slope (max: {args.max_slope}°)...")
+        solar_on_buildings_filtered = filter_raster_by_slope(
+            input_raster=solar_on_buildings,
+            slope_raster=slope,
+            max_slope_degrees=args.max_slope,
+            output_name=f"{args.output_prefix}_filtered",
+            grass_module=Module,
+        )
 
-    # WRF processing (optional)
     day_coefficient_rasters = None
     wrf_adjusted = None
 
     if args.wrf_file:
-        # Clip irradiance rasters to buildings before normalization
         print("Clipping irradiance rasters to buildings for coefficient calculation...")
         rooftop_day_irradiance_rasters = {}
         for day, irradiance_raster in day_irradiance_rasters.items():
-            rooftop_raster = f"{irradiance_raster}_on_buildings"
             rooftop_raster_name = calculate_outline_raster(
                 solar_irradiance_raster=irradiance_raster,
                 building_vector=outlines,
-                output_name=rooftop_raster,
+                output_name=f"{irradiance_raster}_on_buildings",
                 grass_module=Module,
             )
             rooftop_day_irradiance_rasters[day] = rooftop_raster_name
 
-        # Calculate percent-of-max solar coefficients (after clipping)
         print(
             "Calculating per-day solar coefficients (percent-of-max, rooftop only)..."
         )
@@ -259,7 +306,6 @@ def main():
             print_diagnostics=False,
         )
 
-        # Apply per-day percent-of-max coefficients to WRF rasters
         print("Applying per-day percent-of-max solar coefficients to WRF data...")
         adjusted_day_rasters = calculate_wrf_adjusted_per_day(
             wrf_day_rasters=wrf_day_rasters,
@@ -268,7 +314,6 @@ def main():
             output_prefix="wrf_adjusted",
         )
 
-        # Sum the per-day adjusted rasters
         print("Summing adjusted WRF rasters...")
         adjusted_raster_list = list(adjusted_day_rasters.values())
         wrf_adjusted_total = "wrf_adjusted_total"
@@ -280,7 +325,6 @@ def main():
             overwrite=True,
         ).run()
 
-        # Apply building mask to get WRF on buildings
         print("Calculating WRF on buildings...")
         wrf_adjusted = calculate_wrf_on_buildings(
             wrf_summed_raster=wrf_adjusted_total,
@@ -289,7 +333,6 @@ def main():
             grass_module=Module,
         )
 
-        # Clean up intermediate rasters
         cleanup_wrf_intermediates(wrf_day_rasters, wrf_summed, Module)
         Module(
             "g.remove",
@@ -304,7 +347,6 @@ def main():
             flags="f",
         ).run()
 
-        # Export the adjusted WRF raster if requested
         if args.export_rasters:
             print("Exporting WRF adjusted raster...")
             Module(
@@ -316,7 +358,6 @@ def main():
                 overwrite=True,
             ).run()
 
-    # Clean up per-day irradiance and coefficient rasters
     print("Cleaning up intermediate rasters...")
     Module(
         "g.remove",
@@ -334,6 +375,24 @@ def main():
         ).run()
 
     if args.export_rasters:
+        if needs_resample:
+            print(
+                f"Resampling slope and aspect to {args.output_resolution} m for export..."
+            )
+            slope = resample_to_resolution(
+                input_raster=slope,
+                target_resolution=args.output_resolution,
+                output_name=f"{slope}_fine",
+                grass_module=Module,
+                method="nearest",
+            )
+            aspect = resample_to_resolution(
+                input_raster=aspect,
+                target_resolution=args.output_resolution,
+                output_name=f"{aspect}_fine",
+                grass_module=Module,
+                method="nearest",
+            )
         print("Exporting final raster...")
         export_final_raster(
             raster_name=solar_on_buildings_filtered,
@@ -347,7 +406,7 @@ def main():
     create_stats(
         area=args.area_name,
         building_outlines=outlines,
-        rooftop_raster=f"{args.output_prefix}_filtered",
+        rooftop_raster=solar_on_buildings_filtered,
         wrf_raster=wrf_adjusted,
         output_csv=True,
         grass_module=Module,

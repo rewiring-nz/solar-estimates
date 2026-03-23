@@ -20,6 +20,7 @@ import xarray as xr
 
 from .building_outlines import apply_building_mask, remove_masks
 
+
 def _load_wrf_with_crs(nc_file_path: str, crs: str = "EPSG:4326") -> xr.Dataset:
     """Open a WRF NetCDF with xarray and attach a CRS using rioxarray.
 
@@ -40,7 +41,10 @@ def _load_wrf_with_crs(nc_file_path: str, crs: str = "EPSG:4326") -> xr.Dataset:
 
     return ds
 
-def _clip_raster_to_region(raster_name: str, output_name: str, grass_module: Any) -> str:
+
+def _clip_raster_to_region(
+    raster_name: str, output_name: str, grass_module: Any
+) -> str:
     """Clip/copy a GRASS raster to the current computational region.
 
     This helper produces a new raster whose values match `raster_name` but
@@ -63,6 +67,7 @@ def _clip_raster_to_region(raster_name: str, output_name: str, grass_module: Any
     r_mapcalc.run()
 
     return output_name
+
 
 def _import_wrf_to_grass(
     wrf_dataset: xr.Dataset,
@@ -156,7 +161,12 @@ def _import_wrf_to_grass(
 
     return imported_rasters
 
-def _sum_wrf_rasters(wrf_rasters: Union[Dict[int, str], Iterable[str]], output_name: str, grass_module: Any) -> str:
+
+def _sum_wrf_rasters(
+    wrf_rasters: Union[Dict[int, str], Iterable[str]],
+    output_name: str,
+    grass_module: Any,
+) -> str:
     """Sum multiple WRF day rasters into a single total raster using r.mapcalc.
 
     This function constructs an expression like:
@@ -185,6 +195,7 @@ def _sum_wrf_rasters(wrf_rasters: Union[Dict[int, str], Iterable[str]], output_n
     r_mapcalc.run()
 
     return output_name
+
 
 def calculate_wrf_adjusted_per_day(
     wrf_day_rasters: Dict[int, str],
@@ -229,6 +240,7 @@ def calculate_wrf_adjusted_per_day(
         adjusted_rasters[day] = output_name
 
     return adjusted_rasters
+
 
 def sum_adjusted_rasters(
     adjusted_rasters: Union[Dict[int, str], Iterable[str]],
@@ -275,36 +287,109 @@ def sum_adjusted_rasters(
 
     return output_name
 
+
 def calculate_wrf_on_buildings(
-    wrf_summed_raster: str, building_vector: str, output_name: str, grass_module: Any
+    wrf_summed_raster: str,
+    building_vector: str,
+    output_name: str,
+    grass_module: Any,
+    mask_resolution: Optional[float] = None,
 ) -> str:
     """Apply a building mask and create a building-only WRF raster.
+
+    When ``mask_resolution`` is supplied the WRF raster is pre-resampled to
+    that resolution using nearest-neighbour before ``r.mask`` and ``r.mapcalc``
+    run.  This is necessary for two reasons:
+
+    1. ``r.mask`` rasterizes the building vector at the current region
+       resolution.  Pre-resampling sets the region to ``mask_resolution`` as a
+       side effect, so ``r.mask`` captures individual buildings.
+
+    2. GRASS on-the-fly resampling inside ``r.mapcalc`` only returns real values
+       at the coarse pixel centres — all other fine pixels are NULL, producing a
+       patchy output.  Using a pre-resampled nearest-neighbour raster as the
+       ``r.mapcalc`` source ensures every fine cell has a real value inherited
+       from its coarse parent, giving full gap-free coverage.
 
     Args:
         wrf_summed_raster: Name of the summed WRF raster in GRASS.
         building_vector: Name of the building footprints vector in GRASS.
         output_name: Name to create for the building-only WRF raster.
         grass_module: GRASS Module-like callable.
+        mask_resolution: Optional cell size (m) at which to rasterize building
+            polygons and run ``r.mapcalc``.  Set this to a value smaller than
+            a typical building (e.g. ``1.0``) when the DEM is coarser than
+            building footprint size.  When ``None`` the current region
+            resolution is used unchanged.
 
     Returns:
-        The name of the created building-only raster (`output_name`).
+        The name of the created building-only raster (``output_name``).
     """
-    # Apply building mask to restrict operations to building footprints
-    apply_building_mask(building_vector, grass_module=grass_module)
+    resampled = None
+    try:
+        if mask_resolution is not None:
+            # Pre-resample and set the region to mask_resolution as a side effect.
+            resampled = f"{wrf_summed_raster}_resampled"
+            grass_module(
+                "g.region",
+                raster=wrf_summed_raster,
+                res=mask_resolution,
+                flags="a",
+            ).run()
+            grass_module(
+                "r.resamp.interp",
+                input=wrf_summed_raster,
+                output=resampled,
+                method="nearest",
+                overwrite=True,
+            ).run()
+            source_raster = resampled
+        else:
+            source_raster = wrf_summed_raster
 
-    r_mapcalc = grass_module(
-        "r.mapcalc",
-        expression=f"{output_name} = {wrf_summed_raster}",
-        overwrite=True,
-    )
-    r_mapcalc.run()
+        # Apply building mask — region is already at mask_resolution when
+        # resampled is set, so the vector is rasterized at fine resolution.
+        apply_building_mask(building_vector, grass_module=grass_module)
 
-    remove_masks(grass_module)
+        # Every fine pixel in source_raster has a real value, so the output
+        # has full coverage across building footprints.
+        grass_module(
+            "r.mapcalc",
+            expression=f"{output_name} = {source_raster}",
+            overwrite=True,
+        ).run()
+
+    finally:
+        # Always remove the mask even on failure.
+        remove_masks(grass_module)
+
+        # Remove the temporary resampled raster.
+        if resampled is not None:
+            try:
+                grass_module(
+                    "g.remove",
+                    type="raster",
+                    name=resampled,
+                    flags="f",
+                    quiet=True,
+                ).run()
+            except Exception:
+                pass
+
+        # Restore the region to the native resolution of the source raster.
+        if mask_resolution is not None:
+            grass_module(
+                "g.region",
+                raster=wrf_summed_raster,
+            ).run()
 
     return output_name
 
+
 def cleanup_wrf_intermediates(
-    day_rasters: Union[Dict[int, str], Iterable[str]], summed_raster: Optional[str], grass_module: Any
+    day_rasters: Union[Dict[int, str], Iterable[str]],
+    summed_raster: Optional[str],
+    grass_module: Any,
 ) -> None:
     """Remove intermediate WRF rasters from the GRASS mapset.
 
@@ -322,10 +407,15 @@ def cleanup_wrf_intermediates(
         raster_list = list(day_rasters)
 
     for raster in raster_list:
-        grass_module("g.remove", type="raster", name=raster, flags="f", quiet=True).run()
+        grass_module(
+            "g.remove", type="raster", name=raster, flags="f", quiet=True
+        ).run()
 
     if summed_raster:
-        grass_module("g.remove", type="raster", name=summed_raster, flags="f", quiet=True).run()
+        grass_module(
+            "g.remove", type="raster", name=summed_raster, flags="f", quiet=True
+        ).run()
+
 
 def process_wrf_for_grass(
     nc_file_path: str,
@@ -379,7 +469,9 @@ def process_wrf_for_grass(
         # Convert to a sorted list of unique dayofyear integers present in dataset
         days = sorted(int(d) for d in xr.DataArray(wrf_ds["dayofyear"]).values)
 
-    imported_rasters = _import_wrf_to_grass(wrf_ds, output_prefix, grass_module, days, clip_to_raster)
+    imported_rasters = _import_wrf_to_grass(
+        wrf_ds, output_prefix, grass_module, days, clip_to_raster
+    )
 
     # Sum imported daily rasters into a single total raster
     summed_raster_name = f"{output_prefix}_total"
