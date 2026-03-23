@@ -188,7 +188,7 @@ def calculate_horizon_raster(
     Returns:
         The base name of the output horizon raster (same as ``output_name``).
     """
-    step_size = (end_azimuth - start_azimuth) % 360 / azimuth_steps
+    step_size = ((end_azimuth - start_azimuth) % 360) / azimuth_steps
     grass_module(
         "r.horizon",
         elevation=elevation,
