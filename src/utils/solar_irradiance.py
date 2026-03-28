@@ -92,6 +92,8 @@ def calculate_solar_irradiance(
     day: int,
     step: float,
     grass_module,
+    horizon_basename: Optional[str] = None,
+    horizon_step: Optional[float] = None,
 ) -> str:
     """Calculate solar irradiance for a single day using the GRASS r.sun module.
 
@@ -109,6 +111,12 @@ def calculate_solar_irradiance(
             Smaller values (e.g., 0.5) give more accurate results but take longer.
         grass_module: The GRASS Python scripting Module class for running
             GRASS commands.
+        horizon_basename: Optional basename for pre-computed horizon rasters
+            (as produced by ``r.horizon``).  When provided together with
+            ``horizon_step`` these are passed to ``r.sun`` as
+            ``horizon_basename`` and ``horizon_step`` to improve accuracy.
+        horizon_step: Angular step in degrees that was used when computing the
+            horizon rasters.  Required when ``horizon_basename`` is provided.
 
     Returns:
         The name of the output global radiation raster (same as grass_output).
@@ -117,18 +125,23 @@ def calculate_solar_irradiance(
         This function assumes the GRASS computational region is already set
         appropriately for the DSM. The output units are Wh/m²/day.
     """
-    grass_module(
-        "r.sun",
-        elevation=dsm,
-        aspect=aspect,
-        slope=slope,
-        day=day,
-        step=step,
-        linke_value=linke_by_day(day),
-        nprocs=16,
-        glob_rad=grass_output,
-        overwrite=True,
-    ).run()
+    params: dict = {
+        "elevation": dsm,
+        "aspect": aspect,
+        "slope": slope,
+        "day": day,
+        "step": step,
+        "linke_value": linke_by_day(day),
+        "nprocs": 16,
+        "glob_rad": grass_output,
+        "overwrite": True,
+    }
+
+    if horizon_basename is not None and horizon_step is not None:
+        params["horizon_basename"] = horizon_basename
+        params["horizon_step"] = horizon_step
+
+    grass_module("r.sun", **params).run()
 
     return grass_output
 
@@ -142,6 +155,8 @@ def calculate_solar_irradiance_interpolated(
     grass_module,
     export: bool = False,
     output_dir: Optional[Path] = None,
+    horizon_basename: Optional[str] = None,
+    horizon_step: Optional[float] = None,
 ) -> tuple[dict[int, str], str]:
     """Calculate interpolated solar irradiance between key sample days.
 
@@ -167,6 +182,11 @@ def calculate_solar_irradiance_interpolated(
         output_dir: Optional directory in which to write the exported GeoTIFF.
             Only used when export is True.  When None, the file is written to
             the current working directory.
+        horizon_basename: Optional basename for pre-computed horizon rasters
+            (as produced by ``r.horizon``).  Forwarded to each
+            :func:`calculate_solar_irradiance` call.
+        horizon_step: Angular step in degrees used when computing the horizon
+            rasters.  Required when ``horizon_basename`` is provided.
 
     Returns:
         A tuple containing:
@@ -190,6 +210,8 @@ def calculate_solar_irradiance_interpolated(
             day=day,
             step=step,
             grass_module=grass_module,
+            horizon_basename=horizon_basename,
+            horizon_step=horizon_step,
         )
         key_day_rasters.append(day_map)
 
