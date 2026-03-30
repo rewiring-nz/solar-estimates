@@ -1,0 +1,2 @@
+configs/small.env
+configs/suburb_MolesworthStation.env

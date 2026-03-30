@@ -1,0 +1,13 @@
+# ---- South Island ----
+
+# Queenstown Lakes
+configs/suburb_ShotoverCountry.env
+configs/suburb_Arrowtown.env
+
+# Marlborough 
+configs/suburb_MolesworthStation.env
+
+# ---- North Island ----
+
+# configs/suburb_StanleyPoint.env  <-- This run is commented out and will be skipped
+configs/example.env

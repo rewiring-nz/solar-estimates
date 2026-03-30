@@ -13,7 +13,7 @@
 
 # Define the services (containers) you want to run
 services:
-  # Run this with: `docker compose up pipeline`
+  # Running the pipeline for one area
   pipeline:
     build:
       context: .
@@ -54,7 +54,7 @@ services:
       ${SOURCE_CRS:+--source-crs "${SOURCE_CRS}"}
       ${TARGET_CRS:+--target-crs "${TARGET_CRS}"}
 
-  # Run this with: `docker compose up docs`
+  # Running documentation app on local
   docs:
     build:
       context: .
