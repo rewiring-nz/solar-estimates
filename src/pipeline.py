@@ -16,10 +16,13 @@ from utils.building_outlines import (
     remove_masks,
 )
 from utils.dsm import (
+    calculate_horizon_raster,
     calculate_slope_aspect_rasters,
+    combine_horizon_rasters_per_direction,
     filter_raster_by_slope,
     load_virtual_raster_into_grass,
     merge_rasters,
+    normalize_horizon_raster_names,
 )
 from utils.grass_utils import setup_grass
 from utils.logging_config import get_logger, setup_logging
@@ -136,6 +139,54 @@ def parse_args():
         help='Target CRS for WRF reprojection (default: "EPSG:2193" - NZGD2000)',
     )
 
+    # Horizon pre-calculation arguments
+    parser.add_argument(
+        "--calculate-horizon",
+        action="store_true",
+        help="Pre-calculate horizon rasters using r.horizon and feed them to r.sun",
+    )
+
+    parser.add_argument(
+        "--dsm-buffer-distance",
+        type=float,
+        default=1000.0,
+        help="Maximum search distance in metres for local (DSM) horizon (default: 1000.0)",
+    )
+
+    parser.add_argument(
+        "--dem-buffer-distance",
+        type=float,
+        default=50000.0,
+        help="Maximum search distance in metres for regional (DEM) horizon (default: 50000.0)",
+    )
+
+    parser.add_argument(
+        "--horizon-azimuth-steps",
+        type=int,
+        default=16,
+        help="Number of azimuth directions for horizon calculation (default: 16)",
+    )
+
+    parser.add_argument(
+        "--horizon-start-azimuth",
+        type=float,
+        default=0.0,
+        help="Start azimuth in degrees for horizon calculation (default: 0.0)",
+    )
+
+    parser.add_argument(
+        "--horizon-end-azimuth",
+        type=float,
+        default=360.0,
+        help="End azimuth in degrees for horizon calculation (default: 360.0)",
+    )
+
+    parser.add_argument(
+        "--input-dem-glob",
+        default=None,
+        help="Glob pattern for DEM tiles used for regional horizon (optional)",
+    )
+
     return parser.parse_args()
 
 
@@ -194,6 +245,104 @@ def main():
         dsm=virtual_raster, grass_module=Module
     )
 
+    # Horizon pre-calculation (optional)
+    sun_horizon_basename = None
+    sun_horizon_step = None
+
+    if args.calculate_horizon:
+        # Compute the angular step once; used for both r.horizon and r.sun.
+        # Compute the angular step once; used for both r.horizon and r.sun.
+        start_az = args.horizon_start_azimuth
+        end_az = args.horizon_end_azimuth
+        steps = args.horizon_azimuth_steps
+
+        if steps <= 0:
+            raise ValueError(f"--horizon-azimuth-steps must be > 0, got {steps}")
+
+        # Compute clockwise sweep in degrees (0..360)
+        sweep = ((end_az - start_az) % 360.0)
+
+        # Special case: if sweep is 0, treat as full circle rather than "no work".
+        # This covers start=0,end=360 and also start=end.
+        if sweep == 0.0:
+            sweep = 360.0
+
+        horizon_step = sweep / steps
+
+        local_horizon_basename = f"{args.area_name}_horizon_local"
+        logger.info(
+            "Calculating local horizon (DSM) with step=%.4f°, "
+            "start=%.1f°, end=%.1f°, maxdist=%.0fm...",
+            horizon_step,
+            args.horizon_start_azimuth,
+            args.horizon_end_azimuth,
+            args.dsm_buffer_distance,
+        )
+        calculate_horizon_raster(
+            elevation=virtual_raster,
+            output_basename=local_horizon_basename,
+            step=horizon_step,
+            start_azimuth=start_az,
+            end_azimuth=end_az,
+            max_distance=args.dsm_buffer_distance,
+            grass_module=Module,
+        )
+        normalize_horizon_raster_names(local_horizon_basename, Module)
+
+        sun_horizon_basename = local_horizon_basename
+        sun_horizon_step = horizon_step
+
+        if args.input_dem_glob:
+            logger.info("Merging DEM rasters from: %s", args.input_dem_glob)
+            dem_vrt = merge_rasters(
+                dsm_file_glob=args.input_dem_glob,
+                area_name=f"{args.area_name}_dem",
+                output_dir=output_dir,
+            )
+            dem_raster = load_virtual_raster_into_grass(
+                input_vrt=dem_vrt,
+                output_name=f"{args.area_name}_dem",
+                grass_module=Module,
+            )
+            # Restore DSM region after loading DEM
+            Module("g.region", raster=virtual_raster).run()
+
+            regional_horizon_basename = f"{args.area_name}_horizon_regional"
+            logger.info(
+                "Calculating regional horizon (DEM) with step=%.4f°, "
+                "start=%.1f°, end=%.1f°, maxdist=%.0fm...",
+                horizon_step,
+                args.horizon_start_azimuth,
+                args.horizon_end_azimuth,
+                args.dem_buffer_distance,
+            )
+            calculate_horizon_raster(
+                elevation=dem_raster,
+                output_basename=regional_horizon_basename,
+                step=horizon_step,
+                start_azimuth=args.horizon_start_azimuth,
+                end_azimuth=args.horizon_end_azimuth,
+                max_distance=args.dem_buffer_distance,
+                grass_module=Module,
+            )
+            normalize_horizon_raster_names(regional_horizon_basename, Module)
+
+            combined_horizon_basename = f"{args.area_name}_horizon_combined"
+            logger.info("Combining local and regional horizons per direction...")
+            combine_horizon_rasters_per_direction(
+                local_horizon_prefix=local_horizon_basename,
+                regional_horizon_prefix=regional_horizon_basename,
+                output_prefix=f"{args.area_name}_horizon_combined",
+                grass_module=Module,
+            )
+            sun_horizon_basename = combined_horizon_basename
+
+        logger.info(
+            "Horizon pre-calculation complete. Passing basename='%s', step=%.4f to r.sun.",
+            sun_horizon_basename,
+            sun_horizon_step,
+        )
+
     logger.info("Calculating solar irradiance (interpolated) for days: %s", args.key_days)
     day_irradiance_rasters, solar_irradiance = calculate_solar_irradiance_interpolated(
         dsm=virtual_raster,
@@ -204,6 +353,8 @@ def main():
         grass_module=Module,
         export=args.export_rasters,
         output_dir=output_dir,
+        horizon_basename=sun_horizon_basename,
+        horizon_step=sun_horizon_step,
     )
 
     logger.info("Loading building outlines...")
@@ -235,7 +386,7 @@ def main():
     if args.wrf_file:
         logger.info("Calculating per-day solar coefficients...")
         day_coefficient_rasters = calculate_solar_coefficients(
-            day_irradiance_rasters=rooftop_day_irradiance_rasters,
+            day_irradiance_rasters=day_irradiance_rasters,
             dsm=virtual_raster,
             grass_module=Module,
         )
