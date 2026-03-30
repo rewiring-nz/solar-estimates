@@ -251,7 +251,6 @@ def main():
 
     if args.calculate_horizon:
         # Compute the angular step once; used for both r.horizon and r.sun.
-        # Compute the angular step once; used for both r.horizon and r.sun.
         start_az = args.horizon_start_azimuth
         end_az = args.horizon_end_azimuth
         steps = args.horizon_azimuth_steps
@@ -278,6 +277,13 @@ def main():
             args.horizon_end_azimuth,
             args.dsm_buffer_distance,
         )
+        # Remove any stale rasters from previous runs before calculating.
+        Module(
+            "g.remove",
+            type="raster",
+            pattern=f"{local_horizon_basename}*",
+            flags="f",
+        ).run()
         calculate_horizon_raster(
             elevation=virtual_raster,
             output_basename=local_horizon_basename,
@@ -316,6 +322,13 @@ def main():
                 args.horizon_end_azimuth,
                 args.dem_buffer_distance,
             )
+            # Remove any stale rasters from previous runs before calculating.
+            Module(
+                "g.remove",
+                type="raster",
+                pattern=f"{regional_horizon_basename}*",
+                flags="f",
+            ).run()
             calculate_horizon_raster(
                 elevation=dem_raster,
                 output_basename=regional_horizon_basename,

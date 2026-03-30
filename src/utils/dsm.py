@@ -250,17 +250,20 @@ def combine_horizon_rasters_per_direction(
         )
 
     # Extract direction index from names.
-    # We match: "<prefix>_<3digits>_" and capture the 3 digits.
-    # This is robust and avoids depending on the trailing azimuth token formatting.
+    # Match both normalized names (<prefix>_<idx>) and raw r.horizon names
+    # (<prefix>_<idx>_<token>) so the function works before and after normalization.
     def _index_map(prefix: str, rasters: List[str]) -> Dict[str, str]:
         idx_by_raster: Dict[str, str] = {}
-        pat = re.compile(rf"^{re.escape(horizon_basename)}_(\d{{1,3}})_")
+        pat = re.compile(rf"^{re.escape(prefix)}_(\d{{1,3}})(?:_|$)")
         for r in rasters:
-            m = pat.match(r)
+            # Strip any @mapset suffix before matching
+            name = r.split("@")[0]
+            m = pat.match(name)
             if not m:
                 # Skip any unexpected names rather than crashing later with invalid expressions
                 continue
-            idx_by_raster[m.group(1)] = r
+            idx = f"{int(m.group(1)):03d}"  # normalize key to 3 digits
+            idx_by_raster[idx] = name
         return idx_by_raster
 
     local_by_idx = _index_map(local_horizon_prefix, local_rasters)
@@ -299,7 +302,6 @@ def combine_horizon_rasters_per_direction(
         combined_r = f"{output_prefix}_{idx}"
 
         expression = f"{combined_r} = max({local_r}, {regional_r})"
-        breakpoint()
         grass_module("r.mapcalc", expression=expression, overwrite=True).run()
 
     return output_prefix
@@ -344,21 +346,35 @@ def filter_raster_by_slope(
     return output_name
 
 def normalize_horizon_raster_names(horizon_basename: str, grass_module: Any) -> None:
+    """Rename raw r.horizon output rasters to safe, zero-padded names.
+
+    ``r.horizon`` produces rasters named ``<basename>_<idx>_<azimuth_token>``
+    where the azimuth token can contain characters (e.g. a negative sign) that
+    are invalid in subsequent GRASS expressions.  This function renames each
+    such raster to ``<basename>_<idx_3digits>`` which is safe for r.mapcalc.
+
+    Names returned by ``g.list`` may include a ``@mapset`` suffix; those are
+    stripped before renaming so that ``g.rename`` receives a plain map name.
+    """
     rasters = list_horizon_rasters(horizon_basename, grass_module)
     if not rasters:
         raise RuntimeError(f"No horizon rasters found for basename: {horizon_basename}")
 
-    pat = re.compile(rf"^{re.escape(horizon_basename)}_(\d{{1,3}})_")
+    # Match both raw r.horizon names (<prefix>_<idx>_<token>) and already-normalized
+    # names (<prefix>_<idx>) so repeated runs are idempotent.
+    pat = re.compile(rf"^{re.escape(horizon_basename)}_(\d{{1,3}})(?:_|$)")
 
     for r in rasters:
-        m = pat.match(r)
+        # Strip any @mapset suffix – g.rename expects plain map names.
+        name = r.split("@")[0]
+        m = pat.match(name)
         if not m:
             continue
 
         idx_int = int(m.group(1))
         safe_name = f"{horizon_basename}_{idx_int:03d}"
 
-        if safe_name == r:
+        if safe_name == name:
             continue
 
-        grass_module("g.rename", raster=(r, safe_name), overwrite=True).run()
+        grass_module("g.rename", raster=(name, safe_name), overwrite=True).run()
