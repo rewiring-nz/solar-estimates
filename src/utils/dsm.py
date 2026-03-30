@@ -13,10 +13,12 @@ High-level responsibilities:
 - Calculating horizon rasters using r.horizon.
 """
 
+import re
+import subprocess
 import glob
 from pathlib import Path
 from subprocess import PIPE
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from osgeo import gdal
 
 
@@ -118,7 +120,7 @@ def calculate_slope_aspect_rasters(dsm: str, grass_module: Any) -> Tuple[str, st
 def calculate_horizon_raster(
     elevation: str,
     output_basename: str,
-    step: float,
+    step: float = 30.0,
     start_azimuth: float = 0.0,
     end_azimuth: float = 360.0,
     max_distance: Optional[float] = None,
@@ -189,58 +191,119 @@ def list_horizon_rasters(basename: str, grass_module: Any) -> List[str]:
 
 
 def combine_horizon_rasters_per_direction(
-    local_basename: str,
-    regional_basename: str,
-    combined_basename: str,
+    local_horizon_prefix: str,
+    regional_horizon_prefix: str,
+    output_prefix: str,
     grass_module: Any,
 ) -> str:
-    """Combine local and regional horizon rasters per azimuth direction.
+    """
+    Combine local and regional r.horizon outputs *per direction* using r.mapcalc.
 
-    For each azimuth direction the combined horizon angle is
-    ``max(local_angle, regional_angle)``; the obstruction that blocks more
-    sunlight wins.  The combined rasters share *combined_basename* as their
-    prefix so that ``r.sun`` can consume them via ``horizon_basename``.
+    r.horizon creates multiple rasters named like:
+        <prefix>_<dirIndex>_<something>
+
+    Example (your case):
+        suburb_ShotoverCountry_horizon_local_000_315.000000
+        suburb_ShotoverCountry_horizon_regional_000_315.000000
+
+    Your previous implementation embedded the trailing <something> into new map names,
+    but that <something> can become negative / invalid (e.g. -2147483648), causing
+    r.mapcalc parse errors.
+
+    This revised implementation:
+      - uses only the direction index (e.g. 000, 001, ...) to name outputs
+      - never includes a negative sign in map identifiers
+      - pairs rasters by direction index
 
     Args:
-        local_basename: Basename for the local horizon rasters (DSM-derived).
-        regional_basename: Basename for the regional horizon rasters
-            (DEM-derived).
-        combined_basename: Basename/prefix for the output combined rasters.
-        grass_module: The GRASS Python scripting Module class.
+        local_horizon_prefix: Prefix passed to r.horizon for local DSM horizon.
+        regional_horizon_prefix: Prefix passed to r.horizon for regional DEM horizon.
+        output_prefix: Prefix for combined per-direction rasters.
+        grass_module: GRASS Module runner.
 
     Returns:
-        The combined basename (same as ``combined_basename``).
-
-    Raises:
-        ValueError: If the local and regional raster sets have different
-            counts, indicating mismatched azimuth parameters.
+        The output_prefix (combined rasters will be named f"{output_prefix}_{idx:03d}").
     """
-    local_rasters = list_horizon_rasters(local_basename, grass_module)
-    regional_rasters = list_horizon_rasters(regional_basename, grass_module)
+
+    def _g_list(pattern: str) -> List[str]:
+        # Use subprocess g.list exactly like your other helper does.
+        out = subprocess.run(
+            ["g.list", "type=raster", f"pattern={pattern}*"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        rasters = [r for r in out.stdout.strip().split("\n") if r]
+        return rasters
+
+    # Capture r.horizon outputs
+    local_rasters = _g_list(local_horizon_prefix)
+    regional_rasters = _g_list(regional_horizon_prefix)
 
     if not local_rasters:
-        raise ValueError(f"No horizon rasters found for local basename: {local_basename}")
-    if not regional_rasters:
-        raise ValueError(
-            f"No horizon rasters found for regional basename: {regional_basename}"
+        raise RuntimeError(
+            f"No local horizon rasters found matching pattern: {local_horizon_prefix}*"
         )
-    if len(local_rasters) != len(regional_rasters):
-        raise ValueError(
-            f"Local ({len(local_rasters)}) and regional ({len(regional_rasters)}) "
-            "horizon raster counts do not match. Ensure both were computed with the "
-            "same azimuth step, start, and end parameters."
+    if not regional_rasters:
+        raise RuntimeError(
+            f"No regional horizon rasters found matching pattern: {regional_horizon_prefix}*"
         )
 
-    for local_r, regional_r in zip(local_rasters, regional_rasters):
-        # Derive the direction suffix from the local raster name and apply it
-        # to the combined basename so r.sun can discover the combined rasters.
-        suffix = local_r[len(local_basename):]
-        combined_r = f"{combined_basename}{suffix}"
+    # Extract direction index from names.
+    # We match: "<prefix>_<3digits>_" and capture the 3 digits.
+    # This is robust and avoids depending on the trailing azimuth token formatting.
+    def _index_map(prefix: str, rasters: List[str]) -> Dict[str, str]:
+        idx_by_raster: Dict[str, str] = {}
+        pat = re.compile(rf"^{re.escape(horizon_basename)}_(\d{{1,3}})_")
+        for r in rasters:
+            m = pat.match(r)
+            if not m:
+                # Skip any unexpected names rather than crashing later with invalid expressions
+                continue
+            idx_by_raster[m.group(1)] = r
+        return idx_by_raster
+
+    local_by_idx = _index_map(local_horizon_prefix, local_rasters)
+    regional_by_idx = _index_map(regional_horizon_prefix, regional_rasters)
+
+    # Validate that we have a consistent set of directions.
+    local_idxs = set(local_by_idx.keys())
+    regional_idxs = set(regional_by_idx.keys())
+    common_idxs = sorted(local_idxs.intersection(regional_idxs))
+
+    if not common_idxs:
+        raise RuntimeError(
+            "No matching horizon directions between local and regional rasters.\n"
+            f"Local idxs: {sorted(local_idxs)}\n"
+            f"Regional idxs: {sorted(regional_idxs)}"
+        )
+
+    # If there is a mismatch, fail loudly (or you can choose to only combine intersection).
+    missing_local = sorted(regional_idxs - local_idxs)
+    missing_regional = sorted(local_idxs - regional_idxs)
+    if missing_local or missing_regional:
+        raise RuntimeError(
+            "Mismatch between local and regional horizon directions.\n"
+            f"Directions missing in local: {missing_local}\n"
+            f"Directions missing in regional: {missing_regional}\n"
+            "Refusing to continue because per-direction pairing would be wrong."
+        )
+
+    # Combine per direction with safe output names:
+    #   <output_prefix>_<idx>
+    for idx in common_idxs:
+        local_r = local_by_idx[idx]
+        regional_r = regional_by_idx[idx]
+
+        # Important: output map name contains only [A-Za-z0-9_]
+        combined_r = f"{output_prefix}_{idx}"
 
         expression = f"{combined_r} = max({local_r}, {regional_r})"
+        breakpoint()
         grass_module("r.mapcalc", expression=expression, overwrite=True).run()
 
-    return combined_basename
+    return output_prefix
+
 
 
 def filter_raster_by_slope(
@@ -279,3 +342,23 @@ def filter_raster_by_slope(
     r_mapcalc.run()
 
     return output_name
+
+def normalize_horizon_raster_names(horizon_basename: str, grass_module: Any) -> None:
+    rasters = list_horizon_rasters(horizon_basename, grass_module)
+    if not rasters:
+        raise RuntimeError(f"No horizon rasters found for basename: {horizon_basename}")
+
+    pat = re.compile(rf"^{re.escape(horizon_basename)}_(\d{{1,3}})_")
+
+    for r in rasters:
+        m = pat.match(r)
+        if not m:
+            continue
+
+        idx_int = int(m.group(1))
+        safe_name = f"{horizon_basename}_{idx_int:03d}"
+
+        if safe_name == r:
+            continue
+
+        grass_module("g.rename", raster=(r, safe_name), overwrite=True).run()

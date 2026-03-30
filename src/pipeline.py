@@ -22,6 +22,7 @@ from utils.dsm import (
     filter_raster_by_slope,
     load_virtual_raster_into_grass,
     merge_rasters,
+    normalize_horizon_raster_names,
 )
 from utils.grass_utils import setup_grass
 from utils.logging_config import get_logger, setup_logging
@@ -250,9 +251,23 @@ def main():
 
     if args.calculate_horizon:
         # Compute the angular step once; used for both r.horizon and r.sun.
-        horizon_step = (
-            (args.horizon_end_azimuth - args.horizon_start_azimuth) % 360
-        ) / args.horizon_azimuth_steps
+        # Compute the angular step once; used for both r.horizon and r.sun.
+        start_az = args.horizon_start_azimuth
+        end_az = args.horizon_end_azimuth
+        steps = args.horizon_azimuth_steps
+
+        if steps <= 0:
+            raise ValueError(f"--horizon-azimuth-steps must be > 0, got {steps}")
+
+        # Compute clockwise sweep in degrees (0..360)
+        sweep = ((end_az - start_az) % 360.0)
+
+        # Special case: if sweep is 0, treat as full circle rather than "no work".
+        # This covers start=0,end=360 and also start=end.
+        if sweep == 0.0:
+            sweep = 360.0
+
+        horizon_step = sweep / steps
 
         local_horizon_basename = f"{args.area_name}_horizon_local"
         logger.info(
@@ -267,11 +282,12 @@ def main():
             elevation=virtual_raster,
             output_basename=local_horizon_basename,
             step=horizon_step,
-            start_azimuth=args.horizon_start_azimuth,
-            end_azimuth=args.horizon_end_azimuth,
+            start_azimuth=start_az,
+            end_azimuth=end_az,
             max_distance=args.dsm_buffer_distance,
             grass_module=Module,
         )
+        normalize_horizon_raster_names(local_horizon_basename, Module)
 
         sun_horizon_basename = local_horizon_basename
         sun_horizon_step = horizon_step
@@ -309,13 +325,14 @@ def main():
                 max_distance=args.dem_buffer_distance,
                 grass_module=Module,
             )
+            normalize_horizon_raster_names(regional_horizon_basename, Module)
 
             combined_horizon_basename = f"{args.area_name}_horizon_combined"
             logger.info("Combining local and regional horizons per direction...")
             combine_horizon_rasters_per_direction(
-                local_basename=local_horizon_basename,
-                regional_basename=regional_horizon_basename,
-                combined_basename=combined_horizon_basename,
+                local_horizon_prefix=local_horizon_basename,
+                regional_horizon_prefix=regional_horizon_basename,
+                output_prefix=f"{args.area_name}_horizon_combined",
                 grass_module=Module,
             )
             sun_horizon_basename = combined_horizon_basename
