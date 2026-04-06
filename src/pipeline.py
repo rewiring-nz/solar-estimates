@@ -16,7 +16,9 @@ from utils.building_outlines import (
     remove_masks,
 )
 from utils.dsm import (
+    calculate_horizon_raster,
     calculate_slope_aspect_rasters,
+    combine_horizon_rasters,
     filter_raster_by_slope,
     load_virtual_raster_into_grass,
     merge_rasters,
@@ -117,6 +119,54 @@ def parse_args():
         help="Export rasters (solar irradiance, coefficient, WRF adjusted, final) as GeoTIFFs",
     )
 
+    # Horizon pre-calculation arguments
+    parser.add_argument(
+        "--calculate-horizon",
+        action="store_true",
+        help="Enable horizon pre-calculation using r.horizon (improves r.sun speed by 10-30%%)",
+    )
+
+    parser.add_argument(
+        "--dem-glob",
+        default=None,
+        help="Glob pattern for optional 8m DEM tiles used for regional horizon calculation",
+    )
+
+    parser.add_argument(
+        "--dsm-buffer-distance",
+        type=float,
+        default=30.0,
+        help="Local horizon search radius in metres for 1m DSM (default: 30)",
+    )
+
+    parser.add_argument(
+        "--dem-buffer-distance",
+        type=float,
+        default=10000.0,
+        help="Regional horizon search radius in metres for 8m DEM (default: 10000)",
+    )
+
+    parser.add_argument(
+        "--horizon-step-degrees",
+        type=float,
+        default=30.0,
+        help="Azimuth increment in degrees for horizon calculation (default: 30.0)",
+    )
+
+    parser.add_argument(
+        "--horizon-start-azimuth",
+        type=float,
+        default=315.0,
+        help="Start azimuth in degrees for horizon calculation (default: 315° NW)",
+    )
+
+    parser.add_argument(
+        "--horizon-end-azimuth",
+        type=float,
+        default=135.0,
+        help="End azimuth in degrees for horizon calculation (default: 135° SE)",
+    )
+
     # WRF-related arguments
     parser.add_argument(
         "--wrf-file",
@@ -190,9 +240,97 @@ def main():
     )
 
     logger.info("Calculating slope and aspect...")
-    aspect, slope = calculate_slope_aspect_rasters(
-        dsm=virtual_raster, grass_module=Module
-    )
+    aspect, slope = calculate_slope_aspect_rasters(dsm=virtual_raster, grass_module=Module)
+
+    # Horizon pre-calculation (optional, opt-in via --calculate-horizon)
+    horizon = None
+    if args.calculate_horizon:
+        logger.info(
+            "Calculating local horizon from 1m DSM (buffer: %sm)...",
+            args.dsm_buffer_distance,
+        )
+        local_horizon = calculate_horizon_raster(
+            elevation=virtual_raster,
+            output_name=f"{args.area_name}_horizon_local",
+            grass_module=Module,
+            buffer_distance=args.dsm_buffer_distance,
+            start_azimuth=args.horizon_start_azimuth,
+            end_azimuth=args.horizon_end_azimuth,
+            step_degrees=args.horizon_step_degrees,
+        )
+        horizon = local_horizon
+
+        if args.dem_glob:
+            logger.info("Merging DEM rasters from: %s", args.dem_glob)
+            merged_dem_vrt = merge_rasters(
+                dsm_file_glob=args.dem_glob,
+                area_name=f"{args.area_name}_dem",
+                output_dir=output_dir,
+            )
+
+            logger.info("Loading DEM virtual raster into GRASS...")
+            dem_raster = load_virtual_raster_into_grass(
+                input_vrt=merged_dem_vrt,
+                output_name=f"{args.area_name}_dem",
+                grass_module=Module,
+            )
+
+            logger.info(
+                "Calculating regional horizon from 8m DEM (buffer: %sm)...",
+                args.dem_buffer_distance,
+            )
+            regional_horizon = calculate_horizon_raster(
+                elevation=dem_raster,
+                output_name=f"{args.area_name}_horizon_regional",
+                grass_module=Module,
+                buffer_distance=args.dem_buffer_distance,
+                start_azimuth=args.horizon_start_azimuth,
+                end_azimuth=args.horizon_end_azimuth,
+                step_degrees=args.horizon_step_degrees,
+            )
+
+            logger.info("Combining local and regional horizons...")
+            horizon = combine_horizon_rasters(
+                local_horizon=local_horizon,
+                regional_horizon=regional_horizon,
+                output_name=f"{args.area_name}_horizon",
+                grass_module=Module,
+            )
+
+        if args.export_rasters:
+            # `horizon` is a basename prefix for r.sun (a set of rasters like
+            # <basename>_000_0, <basename>_010_0, ...), not a single raster map.
+            logger.info("Exporting horizon rasters (per-azimuth)...")
+
+            from subprocess import PIPE
+
+            # List the per-azimuth rasters for the basename
+            g_list = Module(
+                "g.list",
+                type="raster",
+                pattern=f"{horizon}_*_*",
+                stdout_=PIPE,
+            )
+            g_list.run()
+            horizon_maps = [m.strip() for m in (g_list.outputs.stdout or "").splitlines() if m.strip()]
+
+            if not horizon_maps:
+                logger.warning(
+                    "Export requested, but no horizon rasters found matching pattern: %s",
+                    f"{horizon}_*_*",
+                )
+            else:
+                for horizon_map in sorted(horizon_maps):
+                    out_name = f"{horizon_map}.tif"
+                    logger.info("Exporting %s -> %s", horizon_map, out_name)
+                    Module(
+                        "r.out.gdal",
+                        input=horizon_map,
+                        output=str(output_dir / out_name),
+                        format="GTiff",
+                        createopt="TFW=YES,COMPRESS=LZW",
+                        overwrite=True,
+                    ).run()
 
     logger.info("Calculating solar irradiance (interpolated) for days: %s", args.key_days)
     day_irradiance_rasters, solar_irradiance = calculate_solar_irradiance_interpolated(
@@ -204,6 +342,8 @@ def main():
         grass_module=Module,
         export=args.export_rasters,
         output_dir=output_dir,
+        horizon=horizon,
+        horizon_step_degrees=args.horizon_step_degrees,
     )
 
     logger.info("Loading building outlines...")
