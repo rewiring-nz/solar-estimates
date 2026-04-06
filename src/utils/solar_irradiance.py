@@ -135,7 +135,7 @@ def calculate_solar_irradiance(
 
         grass_module(
             "r.sun",
-            elevation=dsm,  # Question: Is this param required if we have horizon_basemap?
+            elevation=dsm,
             aspect=aspect,
             slope=slope,
             day=day,
