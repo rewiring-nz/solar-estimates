@@ -93,6 +93,7 @@ def calculate_solar_irradiance(
     step: float,
     grass_module,
     horizon: Optional[str] = None,
+    horizon_step_degrees: Optional[float] = None,
 ) -> str:
     """Calculate solar irradiance for a single day using the GRASS r.sun module.
 
@@ -110,11 +111,14 @@ def calculate_solar_irradiance(
             Smaller values (e.g., 0.5) give more accurate results but take longer.
         grass_module: The GRASS Python scripting Module class for running
             GRASS commands.
-        horizon: Optional base name of a pre-calculated horizon raster (as
-            produced by ``calculate_horizon_raster``).  When provided, r.sun
-            uses the horizon data to skip per-cell visibility checks, which
-            typically reduces computation time by 10–30 %.  Defaults to None
-            (standard r.sun behaviour without horizon masking).
+        horizon: Optional base name of a pre-calculated horizon raster set (as
+            produced by ``calculate_horizon_raster`` / ``combine_horizon_rasters``).
+            When provided, r.sun uses the horizon data to skip per-cell visibility
+            checks, which typically reduces computation time by 10–30 %.
+            Defaults to None (standard r.sun behaviour without horizon masking).
+        horizon_step_degrees: Azimuth step in *degrees* matching the horizon raster
+            set produced by r.horizon. This MUST NOT be the same as the r.sun time
+            integration step (hours). Required when horizon is provided.
 
     Returns:
         The name of the output global radiation raster (same as grass_output).
@@ -124,9 +128,14 @@ def calculate_solar_irradiance(
         appropriately for the DSM. The output units are Wh/m²/day.
     """
     if horizon is not None:
+        if horizon_step_degrees is None:
+            raise ValueError(
+                "horizon_step_degrees must be provided when horizon is not None"
+            )
+
         grass_module(
             "r.sun",
-            elevation=dsm, # Question: Is this param required if we have horizon_basemap?
+            elevation=dsm,  # Question: Is this param required if we have horizon_basemap?
             aspect=aspect,
             slope=slope,
             day=day,
@@ -135,7 +144,7 @@ def calculate_solar_irradiance(
             nprocs=16,
             glob_rad=grass_output,
             horizon_basename=horizon,
-            horizon_step=step,
+            horizon_step=horizon_step_degrees,
             overwrite=True,
         ).run()
     else:
@@ -164,6 +173,7 @@ def calculate_solar_irradiance_interpolated(
     export: bool = False,
     output_dir: Optional[Path] = None,
     horizon: Optional[str] = None,
+    horizon_step_degrees: Optional[float] = None,
 ) -> tuple[dict[int, str], str]:
     """Calculate interpolated solar irradiance between key sample days.
 
@@ -193,6 +203,8 @@ def calculate_solar_irradiance_interpolated(
             through to each ``calculate_solar_irradiance`` call.  When provided,
             r.sun uses the horizon data to skip per-cell visibility checks
             (10–30 % faster).  Defaults to None.
+        horizon_step_degrees: Azimuth step in degrees matching the horizon raster
+            set produced by r.horizon. Required when horizon is provided.
 
     Returns:
         A tuple containing:
@@ -217,6 +229,7 @@ def calculate_solar_irradiance_interpolated(
             step=step,
             grass_module=grass_module,
             horizon=horizon,
+            horizon_step_degrees=horizon_step_degrees,
         )
         key_day_rasters.append(day_map)
 
@@ -230,9 +243,7 @@ def calculate_solar_irradiance_interpolated(
 
     # Only run interpolation if there are days between the key days
     if interp_only_days:
-        interp_rasters = [
-            f"{dsm}_solar_irradiance_interp_day{day}" for day in interp_only_days
-        ]
+        interp_rasters = [f"{dsm}_solar_irradiance_interp_day{day}" for day in interp_only_days]
 
         # datapos = key_days positions correspond to input rasters
         # samplingpos = interp_only_days positions for output rasters

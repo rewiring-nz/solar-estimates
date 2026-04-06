@@ -240,13 +240,19 @@ def main():
     )
 
     logger.info("Calculating slope and aspect...")
-    aspect, slope = calculate_slope_aspect_rasters(
-        dsm=virtual_raster, grass_module=Module
-    )
+    aspect, slope = calculate_slope_aspect_rasters(dsm=virtual_raster, grass_module=Module)
 
     # Horizon pre-calculation (optional, opt-in via --calculate-horizon)
     horizon = None
+    horizon_step_degrees = None
     if args.calculate_horizon:
+        # - args.time_step is the temporal integration step for r.sun (hours)
+        # - horizon_step_degrees is the azimuth step (degrees) matching the raster set
+        #   produced by r.horizon.
+        horizon_step_degrees = (
+            (args.horizon_end_azimuth - args.horizon_start_azimuth) % 360
+        ) / args.horizon_azimuth_steps
+
         logger.info(
             "Calculating local horizon from 1m DSM (buffer: %sm)...",
             args.dsm_buffer_distance,
@@ -321,6 +327,7 @@ def main():
         export=args.export_rasters,
         output_dir=output_dir,
         horizon=horizon,
+        horizon_step_degrees=horizon_step_degrees,
     )
 
     logger.info("Loading building outlines...")
