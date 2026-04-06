@@ -301,7 +301,7 @@ def main():
             horizon = combine_horizon_rasters(
                 local_horizon=local_horizon,
                 regional_horizon=regional_horizon,
-                output_name=f"{args.area_name}_horizon_combined",
+                output_name=f"{args.area_name}_horizon",
                 grass_module=Module,
             )
 
