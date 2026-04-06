@@ -124,7 +124,6 @@ def calculate_solar_irradiance(
         appropriately for the DSM. The output units are Wh/m²/day.
     """
     if horizon is not None:
-        # Use horizon basename with -h flag for r.sun
         grass_module(
             "r.sun",
             elevation=dsm,
@@ -135,8 +134,8 @@ def calculate_solar_irradiance(
             linke_value=linke_by_day(day),
             nprocs=16,
             glob_rad=grass_output,
-            horizon=horizon,
-            flags="h",
+            horizon_basename=horizon,
+            horizon_step=step,
             overwrite=True,
         ).run()
     else:
