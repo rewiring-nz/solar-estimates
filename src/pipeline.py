@@ -147,10 +147,10 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--horizon-azimuth-steps",
-        type=int,
-        default=18,
-        help="Number of azimuth directions for horizon calculation (default: 18, ~10° steps over NZ northern arc)",
+        "--horizon-step-degrees",
+        type=float,
+        default=30.0,
+        help="Azimuth increment in degrees for horizon calculation (default: 30.0)",
     )
 
     parser.add_argument(
@@ -244,15 +244,7 @@ def main():
 
     # Horizon pre-calculation (optional, opt-in via --calculate-horizon)
     horizon = None
-    horizon_step_degrees = None
     if args.calculate_horizon:
-        # - args.time_step is the temporal integration step for r.sun (hours)
-        # - horizon_step_degrees is the azimuth step (degrees) matching the raster set
-        #   produced by r.horizon.
-        horizon_step_degrees = (
-            (args.horizon_end_azimuth - args.horizon_start_azimuth) % 360
-        ) / args.horizon_azimuth_steps
-
         logger.info(
             "Calculating local horizon from 1m DSM (buffer: %sm)...",
             args.dsm_buffer_distance,
@@ -264,7 +256,7 @@ def main():
             buffer_distance=args.dsm_buffer_distance,
             start_azimuth=args.horizon_start_azimuth,
             end_azimuth=args.horizon_end_azimuth,
-            azimuth_steps=args.horizon_azimuth_steps,
+            step_degrees=args.horizon_step_degrees,
         )
         horizon = local_horizon
 
@@ -294,7 +286,7 @@ def main():
                 buffer_distance=args.dem_buffer_distance,
                 start_azimuth=args.horizon_start_azimuth,
                 end_azimuth=args.horizon_end_azimuth,
-                azimuth_steps=args.horizon_azimuth_steps,
+                step_degrees=args.horizon_step_degrees,
             )
 
             logger.info("Combining local and regional horizons...")
@@ -329,7 +321,6 @@ def main():
                 )
             else:
                 for horizon_map in sorted(horizon_maps):
-                    # e.g. horizon_map = suburb_ShotoverCountry_horizon_combined_000_0
                     out_name = f"{horizon_map}.tif"
                     logger.info("Exporting %s -> %s", horizon_map, out_name)
                     Module(
@@ -352,7 +343,7 @@ def main():
         export=args.export_rasters,
         output_dir=output_dir,
         horizon=horizon,
-        horizon_step_degrees=horizon_step_degrees,
+        horizon_step_degrees=args.horizon_step_degrees,
     )
 
     logger.info("Loading building outlines...")
