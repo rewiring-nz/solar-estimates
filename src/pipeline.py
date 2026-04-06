@@ -306,15 +306,40 @@ def main():
             )
 
         if args.export_rasters:
-            logger.info("Exporting horizon raster...")
-            Module(
-                "r.out.gdal",
-                input=horizon,
-                output=str(output_dir / f"{args.area_name}_horizon.tif"),
-                format="GTiff",
-                createopt="TFW=YES,COMPRESS=LZW",
-                overwrite=True,
-            ).run()
+            # `horizon` is a basename prefix for r.sun (a set of rasters like
+            # <basename>_000_0, <basename>_010_0, ...), not a single raster map.
+            logger.info("Exporting horizon rasters (per-azimuth)...")
+
+            from subprocess import PIPE
+
+            # List the per-azimuth rasters for the basename
+            g_list = Module(
+                "g.list",
+                type="raster",
+                pattern=f"{horizon}_*_*",
+                stdout_=PIPE,
+            )
+            g_list.run()
+            horizon_maps = [m.strip() for m in (g_list.outputs.stdout or "").splitlines() if m.strip()]
+
+            if not horizon_maps:
+                logger.warning(
+                    "Export requested, but no horizon rasters found matching pattern: %s",
+                    f"{horizon}_*_*",
+                )
+            else:
+                for horizon_map in sorted(horizon_maps):
+                    # e.g. horizon_map = suburb_ShotoverCountry_horizon_combined_000_0
+                    out_name = f"{horizon_map}.tif"
+                    logger.info("Exporting %s -> %s", horizon_map, out_name)
+                    Module(
+                        "r.out.gdal",
+                        input=horizon_map,
+                        output=str(output_dir / out_name),
+                        format="GTiff",
+                        createopt="TFW=YES,COMPRESS=LZW",
+                        overwrite=True,
+                    ).run()
 
     logger.info("Calculating solar irradiance (interpolated) for days: %s", args.key_days)
     day_irradiance_rasters, solar_irradiance = calculate_solar_irradiance_interpolated(
