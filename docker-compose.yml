@@ -50,6 +50,13 @@ services:
       ${KEY_DAYS:+--key-days ${KEY_DAYS}}
       ${TIME_STEP:+--time-step "${TIME_STEP}"}
       ${EXPORT_RASTERS:+--export-rasters}
+      ${CALCULATE_HORIZON:+--calculate-horizon}
+      ${DSM_BUFFER_DISTANCE:+--dsm-buffer-distance "${DSM_BUFFER_DISTANCE}"}
+      ${DEM_BUFFER_DISTANCE:+--dem-buffer-distance "${DEM_BUFFER_DISTANCE}"}
+      ${HORIZON_STEP_DEGREES:+--horizon-step-degrees "${HORIZON_STEP_DEGREES}"}
+      ${HORIZON_START_AZIMUTH:+--horizon-start-azimuth "${HORIZON_START_AZIMUTH}"}
+      ${HORIZON_END_AZIMUTH:+--horizon-end-azimuth "${HORIZON_END_AZIMUTH}"}
+      ${INPUT_DEM_GLOB:+--dem-glob "${INPUT_DEM_GLOB}"}
       ${WRF_FILE:+--wrf-file "${WRF_FILE}"}
       ${SOURCE_CRS:+--source-crs "${SOURCE_CRS}"}
       ${TARGET_CRS:+--target-crs "${TARGET_CRS}"}

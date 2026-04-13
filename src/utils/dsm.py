@@ -10,11 +10,13 @@ High-level responsibilities:
   to a GeoTIFF).
 - Calculating slope and aspect rasters from a DSM.
 - Filtering rasters.
+- Pre-calculating horizon rasters for solar shading optimisation.
 """
 
 import glob
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Any, Optional, Tuple
+
 from osgeo import gdal
 
 
@@ -50,17 +52,13 @@ def merge_rasters(dsm_file_glob: str, area_name: str, output_dir: Path) -> str:
         gdal.BuildVRT(vrt_path, dsm_files, options=vrt_options)
     except Exception as e:
         # Propagate any errors
-        raise RuntimeError(
-            f"🚫 Failed to build VRT from {len(dsm_files)} files: {e}"
-        ) from e
+        raise RuntimeError(f"🚫 Failed to build VRT from {len(dsm_files)} files: {e}") from e
 
     # Return the VRT path
     return vrt_path
 
 
-def load_virtual_raster_into_grass(
-    input_vrt: str, output_name: str, grass_module: Any
-) -> str:
+def load_virtual_raster_into_grass(input_vrt: str, output_name: str, grass_module: Any) -> str:
     """Attach a VRT (virtual raster) to GRASS using `r.external` and set region.
 
     Using `r.external` avoids copying data into the GRASS database; the VRT is
@@ -75,9 +73,7 @@ def load_virtual_raster_into_grass(
         The GRASS raster name.
     """
     # Register the VRT as an external raster
-    r_external = grass_module(
-        "r.external", input=input_vrt, output=output_name, band=1, overwrite=True
-    )
+    r_external = grass_module("r.external", input=input_vrt, output=output_name, band=1, overwrite=True)
     r_external.run()
 
     # Print and set the region to match the attached raster
@@ -141,11 +137,173 @@ def filter_raster_by_slope(
         The name of the output raster.
     """
     # Build and run the r.mapcalc expression to mask out steep slopes
-    expression = (
-        f"{output_name} = if({slope_raster} <= {max_slope_degrees}, "
-        f"{input_raster}, null())"
-    )
+    expression = f"{output_name} = if({slope_raster} <= {max_slope_degrees}, {input_raster}, null())"
     r_mapcalc = grass_module("r.mapcalc", expression=expression, overwrite=True)
     r_mapcalc.run()
+
+    return output_name
+
+
+def calculate_horizon_raster(
+    elevation: str,
+    output_name: str,
+    grass_module: Any,
+    buffer_distance: float = 30.0,
+    start_azimuth: float = 315.0,
+    end_azimuth: float = 135.0,
+    step_degrees: float = 30.0,
+) -> str:
+    """Pre-calculate a horizon raster using GRASS `r.horizon`.
+
+    Computes the maximum horizon elevation angle (in degrees above horizontal)
+    for each cell in the given direction range. By restricting the azimuth
+    range to the northern arc (315°→135°), only those directions from which the
+    sun can reach New Zealand are calculated, reducing computation by ~50%
+    compared to a full 360° sweep.
+
+    Args:
+        elevation: Name of the input elevation raster (DSM or DEM) in GRASS.
+        output_name: Base name for the output horizon raster(s).
+        grass_module: The GRASS Python scripting Module class.
+        buffer_distance: Search radius in metres. Use a small value (e.g. 30 m)
+            for a 1 m DSM to capture local building/tree shading, or a large
+            value (e.g. 10 000 m) for an 8 m DEM to capture distant mountain
+            shading. Defaults to 30.
+        start_azimuth: Starting azimuth in degrees (clockwise from north).
+            Defaults to 315° (NW), the beginning of the NZ northern solar arc.
+        end_azimuth: Ending azimuth in degrees (clockwise from north).
+            Defaults to 135° (SE), the end of the NZ northern solar arc.
+        step_degrees: Horizon azimuth increment in degrees (matches GRASS r.horizon
+            "step="). Defaults to 30°.
+
+    Returns:
+        The base name of the output horizon raster (same as ``output_name``).
+    """
+    grass_module(
+        "r.horizon",
+        elevation=elevation,
+        step=step_degrees,
+        bufferzone=buffer_distance,
+        output=output_name,
+        start=start_azimuth,
+        end=end_azimuth,
+        overwrite=True,
+    ).run()
+
+    return output_name
+
+
+def _list_rasters_with_prefix(prefix: str, grass_module: Any) -> list[str]:
+    """List raster maps in the current mapset matching `<prefix>*`.
+
+    Uses GRASS itself (via the provided Module wrapper) instead of calling
+    `g.list` via subprocess. This avoids PATH/env issues and guarantees we query
+    the same GRASS session/mapset the pipeline is using.
+    """
+    from subprocess import PIPE
+
+    # g.list prints one map per line to stdout
+    proc = grass_module(
+        "g.list",
+        type="raster",
+        pattern=f"{prefix}*",
+        stdout_=PIPE,
+    )
+    proc.run()
+
+    out = (proc.outputs.stdout or "").strip()
+    if not out:
+        return []
+    return [line.strip() for line in out.split("\n") if line.strip()]
+
+
+def _suffix_after_prefix(map_name: str, prefix: str) -> str:
+    """Return the suffix part of a GRASS map name after the given prefix.
+
+    Example:
+      map_name="foo_horizon_local_000_0", prefix="foo_horizon_local"
+      -> "_000_0"
+    """
+    if not map_name.startswith(prefix):
+        raise ValueError(f"Map '{map_name}' does not start with prefix '{prefix}'")
+    return map_name[len(prefix) :]
+
+
+def combine_horizon_rasters(
+    local_horizon: str,
+    regional_horizon: str,
+    output_name: str,
+    grass_module: Any,
+) -> str:
+    """Combine local and regional horizon raster *sets* by taking the maximum angle.
+
+    IMPORTANT: `r.sun`'s `horizon_basename=` expects a *basename* that resolves to a
+    set of rasters like:
+
+      <basename>_000_0
+      <basename>_010_0
+      ...
+
+    `r.horizon` creates these rasters for `local_horizon` and `regional_horizon`.
+    This function creates the same style of rasters for `output_name` by combining
+    matching azimuth rasters from local and regional sets.
+
+    Args:
+        local_horizon: GRASS raster name prefix for the local horizon (from DSM).
+                       r.horizon creates multiple rasters with this prefix.
+        regional_horizon: GRASS raster name prefix for the regional horizon (from DEM).
+                          r.horizon creates multiple rasters with this prefix.
+        output_name: Prefix for the combined horizon raster set.
+        grass_module: The GRASS Python scripting Module class.
+
+    Returns:
+        The basename/prefix for the combined horizon rasters (same as ``output_name``).
+
+    Raises:
+        RuntimeError: if no matching rasters are found or if a local/regional pair
+            is missing for a given azimuth.
+    """
+    local_rasters = _list_rasters_with_prefix(local_horizon, grass_module)
+    regional_rasters = _list_rasters_with_prefix(regional_horizon, grass_module)
+
+    if not local_rasters:
+        raise RuntimeError(f"No horizon rasters found matching pattern: {local_horizon}*")
+    if not regional_rasters:
+        raise RuntimeError(f"No horizon rasters found matching pattern: {regional_horizon}*")
+
+    # Build lookup of regional rasters by suffix (e.g. "_000_0")
+    regional_by_suffix: dict[str, str] = {}
+    for r in regional_rasters:
+        suf = _suffix_after_prefix(r, regional_horizon)
+        regional_by_suffix[suf] = r
+
+    # For each local raster, find matching regional raster with same suffix,
+    # then write output_name<suffix> = max(local, regional)
+    created_any = False
+    for local_map in local_rasters:
+        suffix = _suffix_after_prefix(local_map, local_horizon)
+
+        # Skip the previously-generated single-map products if they exist in the mapset
+        # (e.g. "<prefix>_combined")
+        if suffix == "_combined":
+            continue
+
+        regional_map = regional_by_suffix.get(suffix)
+        if regional_map is None:
+            raise RuntimeError(
+                f"Missing matching regional horizon raster for suffix '{suffix}'. "
+                f"Expected '{regional_horizon}{suffix}' to exist."
+            )
+
+        combined_map = f"{output_name}{suffix}"
+        expr = f"{combined_map} = max({local_map}, {regional_map})"
+        grass_module("r.mapcalc", expression=expr, overwrite=True).run()
+        created_any = True
+
+    if not created_any:
+        raise RuntimeError(
+            f"Did not create any combined horizon rasters for output prefix '{output_name}'. "
+            f"Local rasters: {len(local_rasters)}, regional rasters: {len(regional_rasters)}"
+        )
 
     return output_name
