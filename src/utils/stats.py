@@ -217,11 +217,9 @@ def _export_combined_stats(
     # Optionally export a CSV summary (columns depend on WRF presence)
     if output_csv:
         if has_wrf:
-            columns = "building_i, suburb_loc, town_city, roof_mwh, wrf_mwh, percent_loss, area_sqm, usable_sqm"
+            columns = "roof_mwh, wrf_mwh, percent_loss, area_sqm, usable_sqm"
         else:
-            columns = (
-                "building_i, suburb_loc, town_city, roof_mwh, area_sqm, usable_sqm"
-            )
+            columns = "roof_mwh, area_sqm, usable_sqm"
 
         v_db_select = grass_module(
             "v.db.select",
