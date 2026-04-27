@@ -10,6 +10,8 @@ import time
 from pathlib import Path
 
 from utils.building_outlines import (
+    apply_building_mask,
+    buffer_building_outlines,
     calculate_outline_raster,
     export_final_raster,
     load_building_outlines,
@@ -77,6 +79,13 @@ def parse_args():
         "--building-layer-name",
         default="queenstown_lakes_buildings",
         help='Name of the output building outline layer (default: "queenstown_lakes_buildings")',
+    )
+
+    parser.add_argument(
+        "--building-buffer-distance",
+        type=float,
+        default=2.0,
+        help="Buffer distance in metres to expand building outlines before masking (default: 2.0)",
     )
 
     parser.add_argument(
@@ -239,8 +248,37 @@ def main():
         grass_module=Module,
     )
 
+    logger.info("Loading building outlines...")
+    outlines = load_building_outlines(
+        args.building_dir, args.building_layer_name, grass_module=Module
+    )
+
+    if args.building_buffer_distance > 0:
+        logger.info(
+            "Buffering building outlines by %sm...", args.building_buffer_distance
+        )
+        mask_vector = buffer_building_outlines(
+            vector_name=outlines,
+            buffer_distance=args.building_buffer_distance,
+            area_name=args.area_name,
+            grass_module=Module,
+        )
+    else:
+        mask_vector = outlines
+
+    dsm_for_slope = virtual_raster
+    logger.info("Applying building mask and creating masked DSM for slope/aspect...")
+    apply_building_mask(building_vector=mask_vector, grass_module=Module)
+    dsm_for_slope = f"{virtual_raster}_buildings_masked"
+    Module(
+        "r.mapcalc",
+        expression=f"{dsm_for_slope} = {virtual_raster}",
+        overwrite=True,
+    ).run()
+    remove_masks(grass_module=Module)
+
     logger.info("Calculating slope and aspect...")
-    aspect, slope = calculate_slope_aspect_rasters(dsm=virtual_raster, grass_module=Module)
+    aspect, slope = calculate_slope_aspect_rasters(dsm=dsm_for_slope, grass_module=Module)
 
     # Horizon pre-calculation (optional, opt-in via --calculate-horizon)
     horizon = None
@@ -332,6 +370,9 @@ def main():
                         overwrite=True,
                     ).run()
 
+    logger.info("Applying building mask for r.sun (restricts computation to buildings)...")
+    apply_building_mask(building_vector=mask_vector, grass_module=Module)
+
     logger.info("Calculating solar irradiance (interpolated) for days: %s", args.key_days)
     day_irradiance_rasters, solar_irradiance = calculate_solar_irradiance_interpolated(
         dsm=virtual_raster,
@@ -345,11 +386,7 @@ def main():
         horizon=horizon,
         horizon_step_degrees=args.horizon_step_degrees,
     )
-
-    logger.info("Loading building outlines...")
-    outlines = load_building_outlines(
-        args.building_dir, args.building_layer_name, grass_module=Module
-    )
+    remove_masks(grass_module=Module)
 
     logger.info("Calculating solar irradiance on buildings...")
     solar_on_buildings = calculate_outline_raster(

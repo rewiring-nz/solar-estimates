@@ -123,6 +123,7 @@ python3 pipeline.py \
 | `--building-dir` | No | `data/queenstown_lakes_building_outlines` | Directory containing input building outline shapefiles |
 | `--area-name` | No | `shotover_country` | Descriptive name for the area (used in output filenames) |
 | `--building-layer-name` | No | `queenstown_lakes_buildings` | Name of the output building outline layer |
+| `--building-buffer-distance` | No | `2.0` | Buffer distance in metres to expand building outlines before masking |
 | `--grass-base` | No | Auto-detected | Path to GRASS GIS installation |
 | `--output-prefix` | No | `solar_on_buildings` | Prefix for output files |
 | `--max-slope` | No | `45.0` | Maximum slope in degrees for filtering |

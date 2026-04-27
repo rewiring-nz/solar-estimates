@@ -37,6 +37,36 @@ def load_building_outlines(shapefile: str, output_name: str, grass_module: Any) 
     return output_name
 
 
+def buffer_building_outlines(
+    vector_name: str, buffer_distance: float, area_name: str, grass_module: Any
+) -> str:
+    """Create a buffered copy of a building outlines vector in GRASS.
+
+    Uses ``v.buffer`` to expand each building polygon by ``buffer_distance``
+    metres, producing a new vector that can be used as a mask so that raster
+    operations cover a slightly larger area than the raw footprints.
+
+    Args:
+        vector_name: Name of the existing building footprint vector in GRASS.
+        buffer_distance: Distance in metres to expand each polygon.
+        area_name: Prefix used to build the output vector name.
+        grass_module: The GRASS Python scripting Module class.
+
+    Returns:
+        The GRASS vector name of the buffered output.
+    """
+    output_name = f"{area_name}_buildings_buffered"
+    v_buffer = grass_module(
+        "v.buffer",
+        input=vector_name,
+        output=output_name,
+        distance=buffer_distance,
+        overwrite=True,
+    )
+    v_buffer.run()
+    return output_name
+
+
 def apply_building_mask(building_vector: str, grass_module: Any) -> None:
     """Apply a raster mask based on building outlines.
 
