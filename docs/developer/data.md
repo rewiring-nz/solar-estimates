@@ -18,6 +18,12 @@ _Primary datasets used in our prject._
 * **Project Use:** The primary dataset for identifying individual building locations and footprints for solar potential mapping.
 * **Future:** Integrate NZ Building Outlines (All Sources) which seems to have more buildings, as well as duplicates.
 
+## Tile Index
+
+The 1m DSM and 8m DEM are tiled using the [New Zealand 1:10,000 tile index LINZ layer 104690](https://data.linz.govt.nz/layer/104690), creating individual georeferenced tiles (typically ~4,800 × 7,200 pixels at 1m resolution).
+
+Tiles are named using the format `REGION_10000_INDEX.tif` (e.g., `BH31_10000_0403.tiff`). This enables downloading only tiles covering your region of interest rather than entire national datasets.
+
 ### Meshblock Higher Geographies
 * **Description:** An administrative dataset that links individual meshblocks to higher-level statistical and local government boundaries (160MB).
 * **URL:** https://datafinder.stats.govt.nz/layer/123519-meshblock-higher-geographies-2026/
@@ -33,3 +39,31 @@ _Primary datasets used in our prject._
 | **SA3** | Sub-District | SA2s |
 | **TA** | Territorial Authority: Council/District | SA3s |
 | **REGC** | Regional Council: Water Catchment Area | MB (does not always align with TAs) |
+
+## Accessing LINZ Elevation Data
+
+### Via S3 (Recommended for bulk access)
+
+LINZ publishes elevation data as **Cloud Optimized GeoTIFFs** in the public S3 bucket `s3://nz-elevation` (region: `ap-southeast-2`). Public access requires no AWS credentials.
+
+**Access methods:**
+- **AWS CLI:** `aws s3 ls s3://nz-elevation/dsm_1m/ --no-sign-request`
+- **s5cmd:** `s5cmd ls s3://nz-elevation/dsm_1m/`
+- **GDAL:** `/vsicurl/https://nz-elevation.s3.ap-southeast-2.amazonaws.com/dsm_1m/...`
+
+### Via STAC Metadata (Recommended for discovery)
+
+LINZ publishes STAC Collections and Items for all elevation datasets. Use STAC to discover tile footprints and download links for specific bounding boxes:
+
+- **STAC Browser:** https://data.linz.govt.nz/stac/v1/
+- **Python:** Use `pystac-client` to query collections by geometry or spatial extent
+
+### Via LINZ Data.govt.nz
+
+Direct download available from https://data.linz.govt.nz/, but large datasets are more practical via S3 or STAC discovery for programmatic workflows.
+
+### Processing Notes
+
+- **Projection:** LINZ elevation data is natively in EPSG:2193 (NZTM2000). Processing uses this CRS directly (no reprojection overhead).
+- **Compression:** Cloud Optimized GeoTIFFs use LERC compression, enabling efficient streaming of specific regions.
+- **Tile Size:** ~512 × 512 blocks for rapid tile access via HTTP range requests.
