@@ -65,5 +65,29 @@ Direct download available from https://data.linz.govt.nz/, but large datasets ar
 ### Processing Notes
 
 - **Projection:** LINZ elevation data is natively in EPSG:2193 (NZTM2000). Processing uses this CRS directly (no reprojection overhead).
-- **Compression:** Cloud Optimized GeoTIFFs use LERC compression, enabling efficient streaming of specific regions.
+- **Compression:** Cloud Optimized GeoTIFFs use LERC compression, enabling efficient streaming (typically 50% smaller than LZW).
 - **Tile Size:** ~512 × 512 blocks for rapid tile access via HTTP range requests.
+
+## Viewing LINZ Elevation Data in QGIS
+
+**Install a STAC plugin** to browse LINZ S3 layers directly without downloading:
+
+1. In QGIS: **Plugins → Manage and Install Plugins**
+2. Search for "STAC" and install a client (e.g., "STAC Browser" or "Spectral")
+3. Connect to LINZ STAC: `https://data.linz.govt.nz/stac/v1/`
+4. Browse collections and add layers to your map (streams from S3, no local storage)
+
+### Local QGIS Viewing (Advanced)
+
+You will typically need to convert geotifs downloaded from S3 to LZW format before you can read them in QGIS.
+
+```bash
+# Convert all LERC-compressed tiles in data-s3/ to LZW for local QGIS viewing
+mkdir -p data-lzw
+for f in data-s3/*.tif; do
+  gdal_translate -co COMPRESS=LZW -co TILED=YES -co BLOCKXSIZE=512 -co BLOCKYSIZE=512 \
+    "$f" "data-lzw/$(basename "$f")"
+done
+```
+
+This creates a viewer-friendly copy (~2x larger); the LERC original remains for pipeline processing.

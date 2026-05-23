@@ -1,3 +1,4 @@
+import glob
 import os
 import pathlib
 
@@ -12,17 +13,17 @@ def generate_duration_message(total_seconds: float) -> str:
 def calculate_tif_size_MB(glob_pattern):
     path_obj = pathlib.Path(glob_pattern)
 
-    # If the user passed a glob with a *
-    if "*" in str(glob_pattern):
-        # Extract the directory part (e.g., 'data/inputs/DSM/suburb_name/')
-        base_dir = path_obj.parent
-        pattern = path_obj.name
-        files = base_dir.glob(pattern)
+    # Use glob.has_magic so bracket/range patterns (e.g. 0[12]) are also detected.
+    if glob.has_magic(str(glob_pattern)):
+        file_paths = [pathlib.Path(p) for p in glob.glob(str(glob_pattern), recursive=True)]
+    elif path_obj.is_dir():
+        file_paths = list(path_obj.rglob("*.tif"))
+    elif path_obj.is_file() and path_obj.suffix.lower() == ".tif":
+        file_paths = [path_obj]
     else:
-        # plain dir path
-        files = path_obj.rglob("*.tif")
+        file_paths = []
 
-    total_bytes = sum(f.stat().st_size for f in files if f.is_file())
+    total_bytes = sum(f.stat().st_size for f in file_paths if f.is_file())
     return total_bytes / (1024 * 1024)
 
 

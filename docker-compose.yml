@@ -49,6 +49,8 @@ services:
       ${MAX_SLOPE:+--max-slope "${MAX_SLOPE}"}
       ${KEY_DAYS:+--key-days ${KEY_DAYS}}
       ${TIME_STEP:+--time-step "${TIME_STEP}"}
+      ${REGION_BBOX:+--region-bbox "${REGION_BBOX}"}
+      ${N_PROCS:+--n-procs ${N_PROCS}}
       ${EXPORT_RASTERS:+--export-rasters}
       ${CALCULATE_HORIZON:+--calculate-horizon}
       ${DSM_BUFFER_DISTANCE:+--dsm-buffer-distance "${DSM_BUFFER_DISTANCE}"}

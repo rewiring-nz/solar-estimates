@@ -114,6 +114,19 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--region-bbox",
+        default=None,
+        help="Optional GRASS region bbox as north,south,east,west in project CRS to constrain processing",
+    )
+
+    parser.add_argument(
+        "--n-procs",
+        type=int,
+        default=1,
+        help="Number of parallel processes for r.sun irradiance calculation (default: 1)",
+    )
+
+    parser.add_argument(
         "--export-rasters",
         action="store_true",
         help="Export rasters (solar irradiance, coefficient, WRF adjusted, final) as GeoTIFFs",
@@ -189,6 +202,18 @@ def parse_args():
     return parser.parse_args()
 
 
+def parse_region_bbox(region_bbox: str | None) -> tuple[float, float, float, float] | None:
+    if not region_bbox:
+        return None
+
+    parts = [part.strip() for part in region_bbox.split(",")]
+    if len(parts) != 4:
+        raise ValueError("--region-bbox must contain four comma-separated values: north,south,east,west")
+
+    north, south, east, west = (float(part) for part in parts)
+    return north, south, east, west
+
+
 def main():
     logger = setup_logging()
     start_time = time.time()
@@ -233,10 +258,12 @@ def main():
     )
 
     logger.info("Loading virtual raster into GRASS...")
+    region_bbox = parse_region_bbox(args.region_bbox)
     virtual_raster = load_virtual_raster_into_grass(
         input_vrt=merged_virtual_raster,
         output_name=f"{args.area_name}_dsm",
         grass_module=Module,
+        region_bbox=region_bbox,
     )
 
     logger.info("Calculating slope and aspect...")
@@ -340,6 +367,7 @@ def main():
         key_days=args.key_days,
         step=args.time_step,
         grass_module=Module,
+        n_procs=args.n_procs,
         export=args.export_rasters,
         output_dir=output_dir,
         horizon=horizon,
