@@ -30,8 +30,8 @@ services:
 
     volumes:
       - .:/app
-      # lock down inputs data as read-only (data/outputs need to still be written to)
-      - ./data/inputs:/app/data/inputs:ro
+      # Keep inputs writable to support local cache workflows (e.g., S3 downloads/conversions).
+      - ./data/inputs:/app/data/inputs
       # GRASS DB
       - grass_db:/app/grassdata
 

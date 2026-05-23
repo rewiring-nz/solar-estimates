@@ -79,15 +79,25 @@ Direct download available from https://data.linz.govt.nz/, but large datasets ar
 
 ### Local QGIS Viewing (Advanced)
 
-You will typically need to convert geotifs downloaded from S3 to LZW format before you can read them in QGIS.
+LINZ tiles use LERC compression, which your local GDAL might not support. You can use the project Docker container to decode and convert them to LZW before opening in QGIS. (LZW files are ~2x larger).
+
+The LZW files are written to your host filesystem and can be opened directly in QGIS. 
+
+**Convert a directory of tiles (recommended):**
+
+Output is written next to the source directory as `<input-dir>-lzw`:
 
 ```bash
-# Convert all LERC-compressed tiles in data-s3/ to LZW for local QGIS viewing
-mkdir -p data-lzw
-for f in data-s3/*.tif; do
-  gdal_translate -co COMPRESS=LZW -co TILED=YES -co BLOCKXSIZE=512 -co BLOCKYSIZE=512 \
-    "$f" "data-lzw/$(basename "$f")"
-done
+docker compose run --rm pipeline sh -lc '
+  /app/scripts/convert-to-lzw.sh data/inputs/DSM/<area-name>
+'
 ```
 
-This creates a viewer-friendly copy (~2x larger); the LERC original remains for pipeline processing.
+Or do it manually calling GDAL from the command line:
+
+```bash
+# Convert a LERC-compressed tile to LZW for local QGIS viewing
+gdal_translate -of GTiff \
+  -co COMPRESS=LZW -co TILED=YES -co BLOCKXSIZE=512 -co BLOCKYSIZE=512 -co BIGTIFF=IF_SAFER \
+  data-s3/CC11_10000_0102.tif data-s3-lzw/CC11_10000_0102-lzw.tif
+  ```
