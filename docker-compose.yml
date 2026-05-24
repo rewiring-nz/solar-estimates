@@ -62,6 +62,7 @@ services:
       ${WRF_FILE:+--wrf-file "${WRF_FILE}"}
       ${SOURCE_CRS:+--source-crs "${SOURCE_CRS}"}
       ${TARGET_CRS:+--target-crs "${TARGET_CRS}"}
+      ${DOWNLOAD_DSM:+--download-dsm}
 
   # Running documentation app on local
   docs:

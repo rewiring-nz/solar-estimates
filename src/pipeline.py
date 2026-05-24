@@ -4,6 +4,7 @@ CLI tool for estimating solar irradiance on buildings from digital surface model
 """
 
 import argparse
+import os
 import platform
 import sys
 import time
@@ -15,6 +16,7 @@ from utils.building_outlines import (
     load_building_outlines,
     remove_masks,
 )
+from utils.download_dsm_from_s3 import download_items, select_items
 from utils.dsm import (
     calculate_horizon_raster,
     calculate_slope_aspect_rasters,
@@ -199,6 +201,12 @@ def parse_args():
         help='Target CRS for WRF reprojection (default: "EPSG:2193" - NZGD2000)',
     )
 
+    parser.add_argument(
+        "--download-dsm",
+        action="store_true",
+        help="Optionally run S3 DSM downloader before pipeline steps using current environment config",
+    )
+
     return parser.parse_args()
 
 
@@ -214,12 +222,32 @@ def parse_region_bbox(region_bbox: str | None) -> tuple[float, float, float, flo
     return north, south, east, west
 
 
+def run_optional_dsm_download(logger) -> None:
+    """Run DSM downloader before main pipeline processing using environment variables."""
+    logger.info("Running DSM downloader using current environment configuration")
+    config = dict(os.environ)
+    selected_items = select_items(config)
+    if not selected_items:
+        logger.warning("DSM downloader selected 0 items")
+        return
+
+    download_items(selected_items, config)
+    logger.info("DSM downloader completed")
+
+
 def main():
     logger = setup_logging()
     start_time = time.time()
     logger.info("Starting pipeline")
 
     args = parse_args()
+
+    if args.download_dsm:
+        try:
+            run_optional_dsm_download(logger)
+        except Exception as exc:
+            logger.error("DSM downloader failed: %s", exc)
+            sys.exit(1)
 
     # Validate inputs
     if not Path(args.building_dir).exists():
