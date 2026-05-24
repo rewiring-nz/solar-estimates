@@ -58,7 +58,12 @@ def merge_rasters(dsm_file_glob: str, area_name: str, output_dir: Path) -> str:
     return vrt_path
 
 
-def load_virtual_raster_into_grass(input_vrt: str, output_name: str, grass_module: Any) -> str:
+def load_virtual_raster_into_grass(
+    input_vrt: str,
+    output_name: str,
+    grass_module: Any,
+    region_bbox: Optional[tuple[float, float, float, float]] = None,
+) -> str:
     """Attach a VRT (virtual raster) to GRASS using `r.external` and set region.
 
     Using `r.external` avoids copying data into the GRASS database; the VRT is
@@ -76,8 +81,20 @@ def load_virtual_raster_into_grass(input_vrt: str, output_name: str, grass_modul
     r_external = grass_module("r.external", input=input_vrt, output=output_name, band=1, overwrite=True)
     r_external.run()
 
-    # Print and set the region to match the attached raster
-    g_region = grass_module("g.region", raster=output_name, flags="p")
+    # Print and set the region to match the attached raster, or a smaller bbox if provided.
+    if region_bbox is not None:
+        north, south, east, west = region_bbox
+        g_region = grass_module(
+            "g.region",
+            n=north,
+            s=south,
+            e=east,
+            w=west,
+            align=output_name,
+            flags="p",
+        )
+    else:
+        g_region = grass_module("g.region", raster=output_name, flags="p")
     g_region.run()
 
     return output_name

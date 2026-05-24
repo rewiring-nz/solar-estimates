@@ -4,6 +4,7 @@ CLI tool for estimating solar irradiance on buildings from digital surface model
 """
 
 import argparse
+import os
 import platform
 import sys
 import time
@@ -15,6 +16,7 @@ from utils.building_outlines import (
     load_building_outlines,
     remove_masks,
 )
+from utils.download_dsm_from_s3 import download_items, select_items
 from utils.dsm import (
     calculate_horizon_raster,
     calculate_slope_aspect_rasters,
@@ -114,6 +116,19 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--region-bbox",
+        default=None,
+        help="Optional GRASS region bbox as north,south,east,west in project CRS to constrain processing",
+    )
+
+    parser.add_argument(
+        "--n-procs",
+        type=int,
+        default=1,
+        help="Number of parallel processes for r.sun irradiance calculation (default: 1)",
+    )
+
+    parser.add_argument(
         "--export-rasters",
         action="store_true",
         help="Export rasters (solar irradiance, coefficient, WRF adjusted, final) as GeoTIFFs",
@@ -186,7 +201,38 @@ def parse_args():
         help='Target CRS for WRF reprojection (default: "EPSG:2193" - NZGD2000)',
     )
 
+    parser.add_argument(
+        "--download-dsm",
+        action="store_true",
+        help="Optionally run S3 DSM downloader before pipeline steps using current environment config",
+    )
+
     return parser.parse_args()
+
+
+def parse_region_bbox(region_bbox: str | None) -> tuple[float, float, float, float] | None:
+    if not region_bbox:
+        return None
+
+    parts = [part.strip() for part in region_bbox.split(",")]
+    if len(parts) != 4:
+        raise ValueError("--region-bbox must contain four comma-separated values: north,south,east,west")
+
+    north, south, east, west = (float(part) for part in parts)
+    return north, south, east, west
+
+
+def run_optional_dsm_download(logger) -> None:
+    """Run DSM downloader before main pipeline processing using environment variables."""
+    logger.info("Running DSM downloader using current environment configuration")
+    config = dict(os.environ)
+    selected_items = select_items(config)
+    if not selected_items:
+        logger.warning("DSM downloader selected 0 items")
+        return
+
+    download_items(selected_items, config)
+    logger.info("DSM downloader completed")
 
 
 def main():
@@ -195,6 +241,13 @@ def main():
     logger.info("Starting pipeline")
 
     args = parse_args()
+
+    if args.download_dsm:
+        try:
+            run_optional_dsm_download(logger)
+        except Exception as exc:
+            logger.error("DSM downloader failed: %s", exc)
+            sys.exit(1)
 
     # Validate inputs
     if not Path(args.building_dir).exists():
@@ -233,10 +286,12 @@ def main():
     )
 
     logger.info("Loading virtual raster into GRASS...")
+    region_bbox = parse_region_bbox(args.region_bbox)
     virtual_raster = load_virtual_raster_into_grass(
         input_vrt=merged_virtual_raster,
         output_name=f"{args.area_name}_dsm",
         grass_module=Module,
+        region_bbox=region_bbox,
     )
 
     logger.info("Calculating slope and aspect...")
@@ -340,6 +395,7 @@ def main():
         key_days=args.key_days,
         step=args.time_step,
         grass_module=Module,
+        n_procs=args.n_procs,
         export=args.export_rasters,
         output_dir=output_dir,
         horizon=horizon,

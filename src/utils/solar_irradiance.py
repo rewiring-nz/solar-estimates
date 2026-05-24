@@ -92,6 +92,7 @@ def calculate_solar_irradiance(
     day: int,
     step: float,
     grass_module,
+    n_procs: int = 1,
     horizon: Optional[str] = None,
     horizon_step_degrees: Optional[float] = None,
 ) -> str:
@@ -141,7 +142,7 @@ def calculate_solar_irradiance(
             day=day,
             step=step,
             linke_value=linke_by_day(day),
-            nprocs=16,
+            nprocs=n_procs,
             glob_rad=grass_output,
             horizon_basename=horizon,
             horizon_step=horizon_step_degrees,
@@ -156,7 +157,7 @@ def calculate_solar_irradiance(
             day=day,
             step=step,
             linke_value=linke_by_day(day),
-            nprocs=16,
+            nprocs=n_procs,
             glob_rad=grass_output,
             overwrite=True,
         ).run()
@@ -170,6 +171,7 @@ def calculate_solar_irradiance_interpolated(
     key_days: list[int],
     step: float,
     grass_module,
+    n_procs: int = 1,
     export: bool = False,
     output_dir: Optional[Path] = None,
     horizon: Optional[str] = None,
@@ -193,8 +195,7 @@ def calculate_solar_irradiance_interpolated(
         key_days: List of day-of-year values (1-365) to estimate irradiance.
         step: Time step in hours for the r.sun calculation.
             Smaller values (e.g., 0.5) give more accurate results but take longer.
-        grass_module: The GRASS Python scripting Module class.
-        export: If True, export the summed irradiance raster as a GeoTIFF.
+        grass_module: The GRASS Python scripting Module class.        n_procs: Number of parallel processes for r.sun (default: 1).        export: If True, export the summed irradiance raster as a GeoTIFF.
             Defaults to False.
         output_dir: Optional directory in which to write the exported GeoTIFF.
             Only used when export is True.  When None, the file is written to
@@ -228,6 +229,7 @@ def calculate_solar_irradiance_interpolated(
             day=day,
             step=step,
             grass_module=grass_module,
+            n_procs=n_procs,
             horizon=horizon,
             horizon_step_degrees=horizon_step_degrees,
         )

@@ -14,8 +14,45 @@ GRASS vector/raster database functions. The workflow implemented here is:
 4. Export results to a GeoPackage and optionally a CSV.
 """
 
+from subprocess import PIPE
 from typing import Any, Optional
 from pathlib import Path
+
+
+def _get_vector_columns(vector_map: str, grass_module: Any) -> set[str]:
+    """Return the set of existing attribute column names for a vector map."""
+    v_info = grass_module(
+        "v.info",
+        map=vector_map,
+        flags="c",
+        stdout_=PIPE,
+    )
+    v_info.run()
+
+    columns: set[str] = set()
+    for line in (v_info.outputs.stdout or "").strip().splitlines():
+        parts = [part.strip() for part in line.split("|") if part.strip()]
+        if len(parts) >= 2:
+            columns.add(parts[-1])
+    return columns
+
+
+def _add_missing_columns(vector_map: str, columns: list[str], grass_module: Any) -> None:
+    """Add only the columns that do not yet exist on a vector map."""
+    existing = _get_vector_columns(vector_map, grass_module)
+
+    missing_defs = []
+    for column_def in columns:
+        column_name = column_def.split()[0]
+        if column_name not in existing:
+            missing_defs.append(column_def)
+
+    if missing_defs:
+        grass_module(
+            "v.db.addcolumn",
+            map=vector_map,
+            columns=missing_defs,
+        ).run()
 
 
 def _calculate_clear_sky_stats(
@@ -50,17 +87,16 @@ def _calculate_clear_sky_stats(
     )
     v_rast_stats.run()
 
-    # Add columns for kWh, MWh and usable area (pixel count)
-    v_db_addcolumn = grass_module(
-        "v.db.addcolumn",
-        map=building_outlines,
-        columns=[
+    # Add columns for kWh, MWh and usable area (pixel count) when missing.
+    _add_missing_columns(
+        building_outlines,
+        [
             "roof_kwh DOUBLE PRECISION",
             "roof_mwh DOUBLE PRECISION",
             "usable_sqm INTEGER",
         ],
+        grass_module,
     )
-    v_db_addcolumn.run()
 
     # Populate kWh and MWh columns by converting roof_sum (Wh) to larger units
     v_db_update_kwh = grass_module(
@@ -118,13 +154,12 @@ def _calculate_wrf_stats(
     )
     v_rast_stats_wrf.run()
 
-    # Add column for summed WRF values in MWh
-    v_db_addcolumn = grass_module(
-        "v.db.addcolumn",
-        map=building_outlines,
-        columns=["wrf_mwh DOUBLE PRECISION"],
+    # Add column for summed WRF values in MWh when missing.
+    _add_missing_columns(
+        building_outlines,
+        ["wrf_mwh DOUBLE PRECISION"],
+        grass_module,
     )
-    v_db_addcolumn.run()
 
     # Populate wrf_mwh by converting wrf_sum (Wh) to MWh
     v_db_update_wrf_mwh = grass_module(
@@ -174,22 +209,20 @@ def _export_combined_stats(
     )
     v_extract.run()
 
-    # Add area column to store building area
-    v_db_addcolumn = grass_module(
-        "v.db.addcolumn",
-        map="filtered_buildings",
-        columns=["area_sqm DOUBLE PRECISION"],
+    # Add area column to store building area when missing.
+    _add_missing_columns(
+        "filtered_buildings",
+        ["area_sqm DOUBLE PRECISION"],
+        grass_module,
     )
-    v_db_addcolumn.run()
 
     # If WRF stats are available, add a percent_loss column and compute it
     if has_wrf:
-        v_db_addcolumn_wrf = grass_module(
-            "v.db.addcolumn",
-            map="filtered_buildings",
-            columns=["percent_loss DOUBLE PRECISION"],
+        _add_missing_columns(
+            "filtered_buildings",
+            ["percent_loss DOUBLE PRECISION"],
+            grass_module,
         )
-        v_db_addcolumn_wrf.run()
 
         # Compute percentage loss: (calculated - measured) / calculated * 100
         v_db_update_percent_loss = grass_module(
@@ -239,9 +272,15 @@ def _export_combined_stats(
         output=f"{str(output_dir)}/{area}_building_stats.gpkg",
         format="GPKG",
         output_layer="building_stats",
+        stderr_=PIPE,
         overwrite=True,
     )
     v_out_ogr.run()
+
+    # Some GDAL/SQLite commit failures can be emitted on stderr without a non-zero exit code.
+    stderr_output = (v_out_ogr.outputs.stderr or "").strip()
+    if "error" in stderr_output.lower():
+        raise RuntimeError(f"v.out.ogr reported an error: {stderr_output}")
 
     return f"{str(output_dir)}/{area}_building_stats.gpkg"
 

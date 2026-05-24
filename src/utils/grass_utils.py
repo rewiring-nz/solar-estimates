@@ -7,7 +7,7 @@ enables the programmatic usage of GRASS GIS.
 import os
 import subprocess
 import sys
-from typing import Tuple
+from typing import Callable, Tuple
 
 from utils.logging_config import get_logger
 
@@ -104,5 +104,10 @@ def setup_grass(
     # Initialize a GRASS session in this process
     gscript.setup.init(grassdata_dir, location, mapset)
 
-    # Return the scripting interface and Module class for running GRASS modules
-    return gscript, Module
+    # Wrap Module so callers can safely call `.run()` without accidental double execution.
+    def grass_module(*args, **kwargs):
+        kwargs.setdefault("run_", False)
+        return Module(*args, **kwargs)
+
+    # Return the scripting interface and wrapped module factory
+    return gscript, grass_module

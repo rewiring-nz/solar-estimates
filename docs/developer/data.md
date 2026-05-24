@@ -65,5 +65,39 @@ Direct download available from https://data.linz.govt.nz/, but large datasets ar
 ### Processing Notes
 
 - **Projection:** LINZ elevation data is natively in EPSG:2193 (NZTM2000). Processing uses this CRS directly (no reprojection overhead).
-- **Compression:** Cloud Optimized GeoTIFFs use LERC compression, enabling efficient streaming of specific regions.
+- **Compression:** Cloud Optimized GeoTIFFs use LERC compression, enabling efficient streaming (typically 50% smaller than LZW).
 - **Tile Size:** ~512 × 512 blocks for rapid tile access via HTTP range requests.
+
+## Viewing LINZ Elevation Data in QGIS
+
+**Install a STAC plugin** to browse LINZ S3 layers directly without downloading:
+
+1. In QGIS: **Plugins → Manage and Install Plugins**
+2. Search for "STAC" and install a client (e.g., "STAC Browser" or "Spectral")
+3. Connect to LINZ STAC: `https://data.linz.govt.nz/stac/v1/`
+4. Browse collections and add layers to your map (streams from S3, no local storage)
+
+### Local QGIS Viewing (Advanced)
+
+LINZ tiles use LERC compression, which your local GDAL might not support. You can use the project Docker container to decode and convert them to LZW before opening in QGIS. (LZW files are ~2x larger).
+
+The LZW files are written to your host filesystem and can be opened directly in QGIS. 
+
+**Convert a directory of tiles (recommended):**
+
+Output is written next to the source directory as `<input-dir>-lzw`:
+
+```bash
+docker compose run --rm pipeline sh -lc '
+  /app/scripts/convert-to-lzw.sh data/inputs/DSM/<area-name>
+'
+```
+
+Or do it manually calling GDAL from the command line:
+
+```bash
+# Convert a LERC-compressed tile to LZW for local QGIS viewing
+gdal_translate -of GTiff \
+  -co COMPRESS=LZW -co TILED=YES -co BLOCKXSIZE=512 -co BLOCKYSIZE=512 -co BIGTIFF=IF_SAFER \
+  data-s3/CC11_10000_0102.tif data-s3-lzw/CC11_10000_0102-lzw.tif
+  ```

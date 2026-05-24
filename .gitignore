@@ -29,6 +29,7 @@ __pycache__/
 # Other data formats
 *.csv
 *.gpkg
+*.gfs
 *.DS_Store
 
 # Dependency manager agnostic
