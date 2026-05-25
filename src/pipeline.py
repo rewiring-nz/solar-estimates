@@ -16,7 +16,7 @@ from utils.building_outlines import (
     load_building_outlines,
     remove_masks,
 )
-from utils.download_dsm_from_s3 import download_items, select_items
+from utils.download_dsm_from_s3 import download_items, parse_bool, parse_env_file, select_items
 from utils.dsm import (
     calculate_horizon_raster,
     calculate_slope_aspect_rasters,
@@ -51,52 +51,78 @@ def detect_grass_base():
         return None
 
 
+def parse_key_days(value: str | None, default: list[int]) -> list[int]:
+    if not value:
+        return default
+    parts = value.replace(",", " ").split()
+    if not parts:
+        return default
+    return [int(part) for part in parts]
+
+
+def load_config(config_path: str) -> dict[str, str]:
+    path = Path(config_path)
+    if not path.exists():
+        raise SystemExit(f"Config file does not exist: {path}")
+    return parse_env_file(path)
+
+
 def parse_args():
+    config_parser = argparse.ArgumentParser(add_help=False)
+    config_parser.add_argument(
+        "--config",
+        default=os.environ.get("CONFIG_FILE", "configs/suburb_ShotoverCountry.env"),
+        help="Path to KEY=VALUE config file (default: configs/suburb_ShotoverCountry.env)",
+    )
+    config_args, remaining_argv = config_parser.parse_known_args()
+    config = load_config(config_args.config)
+
     parser = argparse.ArgumentParser(
         description="Estimate solar irradiance on buildings from DSM data",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        parents=[config_parser],
     )
 
     parser.add_argument(
         "--dsm-glob",
-        default="data/shotover_country/*.tif",
+        default=config.get("INPUT_DSM_GLOB", "data/shotover_country/*.tif"),
         help='Glob for DSM GeoTIFF files to use as inputs (default: "data/shotover_country/*.tif")',
     )
 
     parser.add_argument(
         "--building-dir",
-        default="data/queenstown_lakes_building_outlines",
+        default=config.get("INPUT_BUILDING_DIR", "data/queenstown_lakes_building_outlines"),
         help='Directory containing building outline shapefiles to use as inputs (default: "data/queenstown_lakes_building_outlines")',
     )
 
     parser.add_argument(
         "--area-name",
-        default="shotover_country",
+        default=config.get("OUTPUT_AREA_NAME", "shotover_country"),
         help='Descriptive name for the area that will be used in outputs (default: "shotover_country")',
     )
 
     parser.add_argument(
         "--building-layer-name",
-        default="queenstown_lakes_buildings",
+        default=config.get("OUTPUT_BUILDING_LAYER_NAME", "queenstown_lakes_buildings"),
         help='Name of the output building outline layer (default: "queenstown_lakes_buildings")',
     )
 
     parser.add_argument(
         "--grass-base",
-        default=None,
+        default=config.get("GRASS_BASE"),
         help="Path to GRASS GIS installation base directory (auto-detected if not provided)",
     )
 
     parser.add_argument(
         "--output-prefix",
-        default="solar_on_buildings",
+        default=config.get("OUTPUT_PREFIX", "solar_on_buildings"),
         help='Prefix for output files (default: "solar_on_buildings")',
     )
 
     parser.add_argument(
         "--max-slope",
         type=float,
-        default=45.0,
+        default=float(config.get("MAX_SLOPE", 45.0)),
         help="Maximum slope in degrees for filtering (default: 45.0)",
     )
 
@@ -104,33 +130,34 @@ def parse_args():
         "--key-days",
         type=int,
         nargs="+",
-        default=[1, 7],
+        default=parse_key_days(config.get("KEY_DAYS"), [1, 7]),
         help="Day numbers for solar irradiance calculation (default: 1, 7)",
     )
 
     parser.add_argument(
         "--time-step",
         type=float,
-        default=1.0,
+        default=float(config.get("TIME_STEP", 1.0)),
         help="Time step when computing all-day radiation sums in decimal hours (default: 1.0)",
     )
 
     parser.add_argument(
         "--region-bbox",
-        default=None,
+        default=config.get("REGION_BBOX"),
         help="Optional GRASS region bbox as north,south,east,west in project CRS to constrain processing",
     )
 
     parser.add_argument(
         "--n-procs",
         type=int,
-        default=1,
+        default=int(config.get("N_PROCS", 1)),
         help="Number of parallel processes for r.sun irradiance calculation (default: 1)",
     )
 
     parser.add_argument(
         "--export-rasters",
         action="store_true",
+        default=parse_bool(config.get("EXPORT_RASTERS"), default=False),
         help="Export rasters (solar irradiance, coefficient, WRF adjusted, final) as GeoTIFFs",
     )
 
@@ -138,76 +165,80 @@ def parse_args():
     parser.add_argument(
         "--calculate-horizon",
         action="store_true",
+        default=parse_bool(config.get("CALCULATE_HORIZON"), default=False),
         help="Enable horizon pre-calculation using r.horizon (improves r.sun speed by 10-30%%)",
     )
 
     parser.add_argument(
         "--dem-glob",
-        default=None,
+        default=config.get("INPUT_DEM_GLOB"),
         help="Glob pattern for optional 8m DEM tiles used for regional horizon calculation",
     )
 
     parser.add_argument(
         "--dsm-buffer-distance",
         type=float,
-        default=30.0,
+        default=float(config.get("DSM_BUFFER_DISTANCE", 30.0)),
         help="Local horizon search radius in metres for 1m DSM (default: 30)",
     )
 
     parser.add_argument(
         "--dem-buffer-distance",
         type=float,
-        default=10000.0,
+        default=float(config.get("DEM_BUFFER_DISTANCE", 10000.0)),
         help="Regional horizon search radius in metres for 8m DEM (default: 10000)",
     )
 
     parser.add_argument(
         "--horizon-step-degrees",
         type=float,
-        default=30.0,
+        default=float(config.get("HORIZON_STEP_DEGREES", 30.0)),
         help="Azimuth increment in degrees for horizon calculation (default: 30.0)",
     )
 
     parser.add_argument(
         "--horizon-start-azimuth",
         type=float,
-        default=315.0,
+        default=float(config.get("HORIZON_START_AZIMUTH", 315.0)),
         help="Start azimuth in degrees for horizon calculation (default: 315° NW)",
     )
 
     parser.add_argument(
         "--horizon-end-azimuth",
         type=float,
-        default=135.0,
+        default=float(config.get("HORIZON_END_AZIMUTH", 135.0)),
         help="End azimuth in degrees for horizon calculation (default: 135° SE)",
     )
 
     # WRF-related arguments
     parser.add_argument(
         "--wrf-file",
-        default=None,
+        default=config.get("WRF_FILE"),
         help="Path to WRF NetCDF file for measured radiation data (optional)",
     )
 
     parser.add_argument(
         "--source-crs",
-        default="EPSG:4326",
+        default=config.get("SOURCE_CRS", "EPSG:4326"),
         help='Source CRS for WRF data (default: "EPSG:4326")',
     )
 
     parser.add_argument(
         "--target-crs",
-        default="EPSG:2193",
+        default=config.get("TARGET_CRS", "EPSG:2193"),
         help='Target CRS for WRF reprojection (default: "EPSG:2193" - NZGD2000)',
     )
 
     parser.add_argument(
         "--download-dsm",
         action="store_true",
-        help="Optionally run S3 DSM downloader before pipeline steps using current environment config",
+        default=parse_bool(config.get("DOWNLOAD_DSM"), default=False),
+        help="Optionally run S3 DSM downloader before pipeline steps using the selected config file",
     )
 
-    return parser.parse_args()
+    args = parser.parse_args(remaining_argv)
+    args.config = config_args.config
+    return args, config
 
 
 def parse_region_bbox(region_bbox: str | None) -> tuple[float, float, float, float] | None:
@@ -222,10 +253,9 @@ def parse_region_bbox(region_bbox: str | None) -> tuple[float, float, float, flo
     return north, south, east, west
 
 
-def run_optional_dsm_download(logger) -> None:
-    """Run DSM downloader before main pipeline processing using environment variables."""
-    logger.info("Running DSM downloader using current environment configuration")
-    config = dict(os.environ)
+def run_optional_dsm_download(logger, config: dict[str, str]) -> None:
+    """Run DSM downloader before main pipeline processing using the selected config file."""
+    logger.info("Running DSM downloader using config file values")
     selected_items = select_items(config)
     if not selected_items:
         logger.warning("DSM downloader selected 0 items")
@@ -235,16 +265,54 @@ def run_optional_dsm_download(logger) -> None:
     logger.info("DSM downloader completed")
 
 
+def log_runtime_configuration(logger, args) -> None:
+    config_path = Path(args.config).resolve()
+    resolved_values = {
+        "config": str(config_path),
+        "dsm_glob": args.dsm_glob,
+        "building_dir": args.building_dir,
+        "area_name": args.area_name,
+        "building_layer_name": args.building_layer_name,
+        "grass_base": args.grass_base,
+        "output_prefix": args.output_prefix,
+        "max_slope": args.max_slope,
+        "key_days": args.key_days,
+        "time_step": args.time_step,
+        "region_bbox": args.region_bbox,
+        "n_procs": args.n_procs,
+        "export_rasters": args.export_rasters,
+        "calculate_horizon": args.calculate_horizon,
+        "dem_glob": args.dem_glob,
+        "dsm_buffer_distance": args.dsm_buffer_distance,
+        "dem_buffer_distance": args.dem_buffer_distance,
+        "horizon_step_degrees": args.horizon_step_degrees,
+        "horizon_start_azimuth": args.horizon_start_azimuth,
+        "horizon_end_azimuth": args.horizon_end_azimuth,
+        "wrf_file": args.wrf_file,
+        "source_crs": args.source_crs,
+        "target_crs": args.target_crs,
+        "download_dsm": args.download_dsm,
+    }
+
+    logger.info("Runtime config source: %s", resolved_values["config"])
+    logger.info("Resolved runtime parameters:")
+    for key, value in resolved_values.items():
+        if key == "config":
+            continue
+        logger.info("  %s=%s", key, value)
+
+
 def main():
     logger = setup_logging()
     start_time = time.time()
     logger.info("Starting pipeline")
 
-    args = parse_args()
+    args, config = parse_args()
+    log_runtime_configuration(logger, args)
 
     if args.download_dsm:
         try:
-            run_optional_dsm_download(logger)
+            run_optional_dsm_download(logger, config)
         except Exception as exc:
             logger.error("DSM downloader failed: %s", exc)
             sys.exit(1)

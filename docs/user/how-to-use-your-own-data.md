@@ -77,10 +77,10 @@ The pipeline has many input arguments that you can try. See `src/README.md` for 
 
 ## 4. Run the pipeline with your custom data
 
-To run the pipeline script with your own data by pointing the docker container towards a particular environment file, like this example:
+To run the pipeline with your own data, set the config file path in `CONFIG_FILE` and run the pipeline service:
 
 ```bash
-docker compose --env-file configs/suburb_ShotoverCountry.env up pipeline
+CONFIG_FILE=configs/suburb_ShotoverCountry.env docker compose run --rm pipeline
 ```
 
 The output will appear in the `data/outputs/OUTPUT_AREA_NAME` directory as defined in your config file, like this:

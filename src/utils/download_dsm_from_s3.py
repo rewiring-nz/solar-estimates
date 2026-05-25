@@ -35,7 +35,16 @@ def parse_env_file(env_path: Path) -> dict[str, str]:
                 continue
             key, value = line.split("=", 1)
             key = key.strip()
-            value = value.strip().strip('"').strip("'")
+            value = value.strip()
+            # Strip inline comments (e.g. VALUE=foo # comment) but only for
+            # unquoted values — quoted strings may legitimately contain '#'.
+            if not (value.startswith('"') or value.startswith("'")):
+                for sep in (" #", "\t#"):
+                    idx = value.find(sep)
+                    if idx >= 0:
+                        value = value[:idx].rstrip()
+                        break
+            value = value.strip('"').strip("'")
             config[key] = value
     return config
 
