@@ -185,7 +185,7 @@ def parse_args():
         "--key-days",
         type=int,
         nargs="+",
-        default=get_config_key_days(config, [1, 7]),
+        default=get_config_key_days(config, [15, 105, 196]),
         help="Day numbers for solar irradiance calculation (default: from merged config)",
     )
 
