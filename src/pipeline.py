@@ -67,44 +67,99 @@ def load_config(config_path: str) -> dict[str, str]:
     return parse_env_file(path)
 
 
+def get_config_value(
+    config: dict[str, str],
+    key: str,
+    default: str | None = None,
+    *,
+    required: bool = False,
+) -> str | None:
+    value = config.get(key)
+    if value is not None and value.strip():
+        return value
+
+    if required:
+        raise SystemExit(f"Missing required config key: {key}")
+
+    return default
+
+
+def get_config_float(config: dict[str, str], key: str, default: float) -> float:
+    value = get_config_value(config, key)
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except ValueError as exc:
+        raise SystemExit(f"Invalid float for {key}: {value}") from exc
+
+
+def get_config_int(config: dict[str, str], key: str, default: int) -> int:
+    value = get_config_value(config, key)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise SystemExit(f"Invalid integer for {key}: {value}") from exc
+
+
+def get_config_key_days(config: dict[str, str], default: list[int]) -> list[int]:
+    value = get_config_value(config, "KEY_DAYS")
+    return parse_key_days(value, default)
+
+
 def parse_args():
     config_parser = argparse.ArgumentParser(add_help=False)
     config_parser.add_argument(
+        "--defaults-config",
+        default=os.environ.get("DEFAULT_CONFIG_FILE", "configs/default.env"),
+        help="Base defaults config file (KEY=VALUE). Precedence: CLI > --config > --defaults-config",
+    )
+    config_parser.add_argument(
         "--config",
         default=os.environ.get("CONFIG_FILE", "configs/suburb_ShotoverCountry.env"),
-        help="Path to KEY=VALUE config file (default: configs/suburb_ShotoverCountry.env)",
+        help="Scenario config file (KEY=VALUE) that overrides --defaults-config",
     )
     config_args, remaining_argv = config_parser.parse_known_args()
-    config = load_config(config_args.config)
+    defaults_config = load_config(config_args.defaults_config)
+    scenario_config = load_config(config_args.config)
+    config = {**defaults_config, **scenario_config}
 
     parser = argparse.ArgumentParser(
         description="Estimate solar irradiance on buildings from DSM data",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         parents=[config_parser],
+        epilog=(
+            "Configuration precedence:\n"
+            "  1) CLI flags\n"
+            "  2) --config scenario file\n"
+            "  3) --defaults-config base defaults file"
+        ),
     )
 
     parser.add_argument(
         "--dsm-glob",
-        default=config.get("INPUT_DSM_GLOB", "data/shotover_country/*.tif"),
-        help='Glob for DSM GeoTIFF files to use as inputs (default: "data/shotover_country/*.tif")',
+        default=get_config_value(config, "INPUT_DSM_GLOB", required=True),
+        help="Glob for DSM GeoTIFF files to use as inputs (required after config merge)",
     )
 
     parser.add_argument(
         "--building-dir",
-        default=config.get("INPUT_BUILDING_DIR", "data/queenstown_lakes_building_outlines"),
-        help='Directory containing building outline shapefiles to use as inputs (default: "data/queenstown_lakes_building_outlines")',
+        default=get_config_value(config, "INPUT_BUILDING_DIR", required=True),
+        help="Building outlines path (required after config merge)",
     )
 
     parser.add_argument(
         "--area-name",
-        default=config.get("OUTPUT_AREA_NAME", "shotover_country"),
-        help='Descriptive name for the area that will be used in outputs (default: "shotover_country")',
+        default=get_config_value(config, "OUTPUT_AREA_NAME", required=True),
+        help="Descriptive name used in output filenames (required after config merge)",
     )
 
     parser.add_argument(
         "--building-layer-name",
-        default=config.get("OUTPUT_BUILDING_LAYER_NAME", "queenstown_lakes_buildings"),
-        help='Name of the output building outline layer (default: "queenstown_lakes_buildings")',
+        default=get_config_value(config, "OUTPUT_BUILDING_LAYER_NAME", required=True),
+        help="Name of the output building outline layer (required after config merge)",
     )
 
     parser.add_argument(
@@ -115,30 +170,30 @@ def parse_args():
 
     parser.add_argument(
         "--output-prefix",
-        default=config.get("OUTPUT_PREFIX", "solar_on_buildings"),
-        help='Prefix for output files (default: "solar_on_buildings")',
+        default=get_config_value(config, "OUTPUT_PREFIX", "solar_on_buildings"),
+        help="Prefix for output files (default: from merged config)",
     )
 
     parser.add_argument(
         "--max-slope",
         type=float,
-        default=float(config.get("MAX_SLOPE", 45.0)),
-        help="Maximum slope in degrees for filtering (default: 45.0)",
+        default=get_config_float(config, "MAX_SLOPE", 45.0),
+        help="Maximum slope in degrees for filtering (default: from merged config)",
     )
 
     parser.add_argument(
         "--key-days",
         type=int,
         nargs="+",
-        default=parse_key_days(config.get("KEY_DAYS"), [1, 7]),
-        help="Day numbers for solar irradiance calculation (default: 1, 7)",
+        default=get_config_key_days(config, [1, 7]),
+        help="Day numbers for solar irradiance calculation (default: from merged config)",
     )
 
     parser.add_argument(
         "--time-step",
         type=float,
-        default=float(config.get("TIME_STEP", 1.0)),
-        help="Time step when computing all-day radiation sums in decimal hours (default: 1.0)",
+        default=get_config_float(config, "TIME_STEP", 1.0),
+        help="Time step for all-day radiation sums in decimal hours (default: from merged config)",
     )
 
     parser.add_argument(
@@ -150,8 +205,8 @@ def parse_args():
     parser.add_argument(
         "--n-procs",
         type=int,
-        default=int(config.get("N_PROCS", 1)),
-        help="Number of parallel processes for r.sun irradiance calculation (default: 1)",
+        default=get_config_int(config, "N_PROCS", 1),
+        help="Number of parallel processes for r.sun irradiance calculation (default: from merged config)",
     )
 
     parser.add_argument(
@@ -178,36 +233,36 @@ def parse_args():
     parser.add_argument(
         "--dsm-buffer-distance",
         type=float,
-        default=float(config.get("DSM_BUFFER_DISTANCE", 30.0)),
-        help="Local horizon search radius in metres for 1m DSM (default: 30)",
+        default=get_config_float(config, "DSM_BUFFER_DISTANCE", 30.0),
+        help="Local horizon search radius in metres for 1m DSM (default: from merged config)",
     )
 
     parser.add_argument(
         "--dem-buffer-distance",
         type=float,
-        default=float(config.get("DEM_BUFFER_DISTANCE", 10000.0)),
-        help="Regional horizon search radius in metres for 8m DEM (default: 10000)",
+        default=get_config_float(config, "DEM_BUFFER_DISTANCE", 10000.0),
+        help="Regional horizon search radius in metres for 8m DEM (default: from merged config)",
     )
 
     parser.add_argument(
         "--horizon-step-degrees",
         type=float,
-        default=float(config.get("HORIZON_STEP_DEGREES", 30.0)),
-        help="Azimuth increment in degrees for horizon calculation (default: 30.0)",
+        default=get_config_float(config, "HORIZON_STEP_DEGREES", 30.0),
+        help="Azimuth increment in degrees for horizon calculation (default: from merged config)",
     )
 
     parser.add_argument(
         "--horizon-start-azimuth",
         type=float,
-        default=float(config.get("HORIZON_START_AZIMUTH", 315.0)),
-        help="Start azimuth in degrees for horizon calculation (default: 315° NW)",
+        default=get_config_float(config, "HORIZON_START_AZIMUTH", 315.0),
+        help="Start azimuth in degrees for horizon calculation (default: from merged config)",
     )
 
     parser.add_argument(
         "--horizon-end-azimuth",
         type=float,
-        default=float(config.get("HORIZON_END_AZIMUTH", 135.0)),
-        help="End azimuth in degrees for horizon calculation (default: 135° SE)",
+        default=get_config_float(config, "HORIZON_END_AZIMUTH", 135.0),
+        help="End azimuth in degrees for horizon calculation (default: from merged config)",
     )
 
     # WRF-related arguments
@@ -219,14 +274,14 @@ def parse_args():
 
     parser.add_argument(
         "--source-crs",
-        default=config.get("SOURCE_CRS", "EPSG:4326"),
-        help='Source CRS for WRF data (default: "EPSG:4326")',
+        default=get_config_value(config, "SOURCE_CRS", "EPSG:4326"),
+        help="Source CRS for WRF data (default: from merged config)",
     )
 
     parser.add_argument(
         "--target-crs",
-        default=config.get("TARGET_CRS", "EPSG:2193"),
-        help='Target CRS for WRF reprojection (default: "EPSG:2193" - NZGD2000)',
+        default=get_config_value(config, "TARGET_CRS", "EPSG:2193"),
+        help="Target CRS for WRF reprojection (default: from merged config)",
     )
 
     parser.add_argument(
@@ -237,6 +292,7 @@ def parse_args():
     )
 
     args = parser.parse_args(remaining_argv)
+    args.defaults_config = config_args.defaults_config
     args.config = config_args.config
     return args, config
 
@@ -266,8 +322,10 @@ def run_optional_dsm_download(logger, config: dict[str, str]) -> None:
 
 
 def log_runtime_configuration(logger, args) -> None:
+    defaults_config_path = Path(args.defaults_config).resolve()
     config_path = Path(args.config).resolve()
     resolved_values = {
+        "defaults_config": str(defaults_config_path),
         "config": str(config_path),
         "dsm_glob": args.dsm_glob,
         "building_dir": args.building_dir,
@@ -294,10 +352,11 @@ def log_runtime_configuration(logger, args) -> None:
         "download_dsm": args.download_dsm,
     }
 
-    logger.info("Runtime config source: %s", resolved_values["config"])
+    logger.info("Runtime defaults config source: %s", resolved_values["defaults_config"])
+    logger.info("Runtime scenario config source: %s", resolved_values["config"])
     logger.info("Resolved runtime parameters:")
     for key, value in resolved_values.items():
-        if key == "config":
+        if key in {"defaults_config", "config"}:
             continue
         logger.info("  %s=%s", key, value)
 

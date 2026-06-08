@@ -64,12 +64,14 @@ sudo ./setup-docker.sh
 
 With Docker ready, you can now launch the processing pipeline. This process downloads required images and runs the analysis, which may take several minutes.
 
+The pipeline loads base defaults from `configs/default.env`, then applies your selected scenario config from `CONFIG_FILE`, then applies any CLI flag overrides.
+
 ```bash
 # Ensure you are in the project root directory (i.e. go back up one level if you were in scripts/ or src/)
 
 CONFIG_FILE=configs/suburb_ShotoverCountry.env docker compose run --rm pipeline
 ```
-You will see logs in your terminal as the `pipeline.sh` script executes.
+You will see logs in your terminal as the pipeline executes. At startup it prints the defaults config source, the scenario config source, and the resolved runtime parameters so you can verify the run is using the values you expect.
 
 Once finished, observe that you have created the following files in the `solar-estimates/src/data/outputs/OUTPUT_AREA_NAME/` directory:
 
