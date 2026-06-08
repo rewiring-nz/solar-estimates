@@ -4,8 +4,10 @@ CLI tool for estimating solar irradiance on buildings from digital surface model
 """
 
 import argparse
+import glob
 import os
 import platform
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -58,6 +60,17 @@ def parse_key_days(value: str | None, default: list[int]) -> list[int]:
     if not parts:
         return default
     return [int(part) for part in parts]
+
+
+def parse_cli_bool(value: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise argparse.ArgumentTypeError(
+        f"Invalid boolean value '{value}'. Use one of: true,false,1,0,yes,no,on,off"
+    )
 
 
 def load_config(config_path: str) -> dict[str, str]:
@@ -286,9 +299,26 @@ def parse_args():
 
     parser.add_argument(
         "--download-dsm",
-        action="store_true",
+        type=parse_cli_bool,
         default=parse_bool(config.get("DOWNLOAD_DSM"), default=False),
-        help="Optionally run S3 DSM downloader before pipeline steps using the selected config file",
+        metavar="true|false",
+        help="Optionally run S3 DSM downloader before pipeline steps (default: from merged config)",
+    )
+
+    parser.add_argument(
+        "--process-per-input-tile",
+        type=parse_cli_bool,
+        default=parse_bool(config.get("PROCESS_PER_INPUT_TILE"), default=False),
+        metavar="true|false",
+        help="Process each DSM file matched by --dsm-glob independently with per-tile outputs",
+    )
+
+    parser.add_argument(
+        "--skip-completed-tiles",
+        type=parse_cli_bool,
+        default=parse_bool(config.get("SKIP_COMPLETED_TILES"), default=True),
+        metavar="true|false",
+        help="When per-tile mode is enabled, skip tiles with completed outputs already present",
     )
 
     args = parser.parse_args(remaining_argv)
@@ -350,6 +380,8 @@ def log_runtime_configuration(logger, args) -> None:
         "source_crs": args.source_crs,
         "target_crs": args.target_crs,
         "download_dsm": args.download_dsm,
+        "process_per_input_tile": args.process_per_input_tile,
+        "skip_completed_tiles": args.skip_completed_tiles,
     }
 
     logger.info("Runtime defaults config source: %s", resolved_values["defaults_config"])
@@ -359,6 +391,128 @@ def log_runtime_configuration(logger, args) -> None:
         if key in {"defaults_config", "config"}:
             continue
         logger.info("  %s=%s", key, value)
+
+
+def get_completion_artifact(output_dir: Path, area_name: str, export_rasters: bool) -> Path:
+    if export_rasters:
+        return output_dir / f"{area_name}_solar_irradiance_on_buildings.tif"
+    return output_dir / f"{area_name}_building_stats.gpkg"
+
+
+def build_single_tile_command(args, dsm_file: str, tile_area_name: str, tile_output_prefix: str) -> list[str]:
+    cmd = [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "--defaults-config",
+        args.defaults_config,
+        "--config",
+        args.config,
+        "--dsm-glob",
+        dsm_file,
+        "--building-dir",
+        args.building_dir,
+        "--area-name",
+        tile_area_name,
+        "--building-layer-name",
+        args.building_layer_name,
+        "--output-prefix",
+        tile_output_prefix,
+        "--max-slope",
+        str(args.max_slope),
+        "--time-step",
+        str(args.time_step),
+        "--n-procs",
+        str(args.n_procs),
+        "--dsm-buffer-distance",
+        str(args.dsm_buffer_distance),
+        "--dem-buffer-distance",
+        str(args.dem_buffer_distance),
+        "--horizon-step-degrees",
+        str(args.horizon_step_degrees),
+        "--horizon-start-azimuth",
+        str(args.horizon_start_azimuth),
+        "--horizon-end-azimuth",
+        str(args.horizon_end_azimuth),
+        "--source-crs",
+        args.source_crs,
+        "--target-crs",
+        args.target_crs,
+        "--download-dsm",
+        "false",
+        "--process-per-input-tile",
+        "false",
+        "--skip-completed-tiles",
+        "false",
+    ]
+
+    if args.grass_base:
+        cmd.extend(["--grass-base", args.grass_base])
+    if args.region_bbox:
+        cmd.extend(["--region-bbox", args.region_bbox])
+    if args.dem_glob:
+        cmd.extend(["--dem-glob", args.dem_glob])
+    if args.wrf_file:
+        cmd.extend(["--wrf-file", args.wrf_file])
+    if args.export_rasters:
+        cmd.append("--export-rasters")
+    if args.calculate_horizon:
+        cmd.append("--calculate-horizon")
+
+    if args.key_days:
+        cmd.append("--key-days")
+        cmd.extend(str(day) for day in args.key_days)
+
+    return cmd
+
+
+def run_per_input_tile_mode(args, logger) -> None:
+    dsm_files = sorted(glob.glob(args.dsm_glob))
+    if not dsm_files:
+        raise FileNotFoundError(f"No DSM files found for pattern: {args.dsm_glob}")
+
+    logger.info("Per-tile mode enabled: matched %d DSM files", len(dsm_files))
+    processed = 0
+    skipped = 0
+
+    for index, dsm_file in enumerate(dsm_files, start=1):
+        tile_id = Path(dsm_file).stem
+        tile_area_name = f"{args.area_name}_tile_{tile_id}"
+        tile_output_prefix = f"{args.output_prefix}_{tile_id}"
+        tile_output_dir = Path(f"data/outputs/{tile_area_name}")
+        completion_artifact = get_completion_artifact(
+            output_dir=tile_output_dir,
+            area_name=tile_area_name,
+            export_rasters=args.export_rasters,
+        )
+
+        if args.skip_completed_tiles and completion_artifact.exists():
+            skipped += 1
+            logger.info(
+                "[%d/%d] Skipping completed tile %s (found %s)",
+                index,
+                len(dsm_files),
+                tile_id,
+                completion_artifact,
+            )
+            continue
+
+        logger.info("[%d/%d] Processing tile %s", index, len(dsm_files), tile_id)
+        command = build_single_tile_command(
+            args=args,
+            dsm_file=dsm_file,
+            tile_area_name=tile_area_name,
+            tile_output_prefix=tile_output_prefix,
+        )
+
+        subprocess.run(command, check=True)
+        processed += 1
+
+    logger.info(
+        "Per-tile mode finished: processed=%d skipped=%d total=%d",
+        processed,
+        skipped,
+        len(dsm_files),
+    )
 
 
 def main():
@@ -381,6 +535,14 @@ def main():
         if not Path(f"{args.building_dir}.zip").exists():
             logger.error("Building directory does not exist: %s", args.building_dir)
             sys.exit(1)
+
+    if args.process_per_input_tile:
+        try:
+            run_per_input_tile_mode(args, logger)
+        except Exception as exc:
+            logger.error("Per-tile processing failed: %s", exc)
+            sys.exit(1)
+        return
 
     # Auto-detect or validate GRASS base path
     grass_base = args.grass_base
