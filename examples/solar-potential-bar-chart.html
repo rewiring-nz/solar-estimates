@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar Intensity - By Season and Hour</title>
+    <!-- Dependencies -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls loaded from a highly reliable CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #ffffff; font-family: 'Inter', sans-serif; }
+        #root { width: 100%; height: 100%; display: flex; flex-direction: column; }
+        canvas { display: block; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 2px; }
+        .color-box { width: 10px; height: 10px; margin-right: 6px; border: 1px solid #000; }
+        #error-msg { display: none; padding: 20px; color: red; font-family: sans-serif; position: absolute; z-index: 50; }
+    </style>
+</head>
+<body>
+    <div id="error-msg">Error: Failed to load 3D libraries. Please check your internet connection.</div>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        /**
+         * DATASET
+         * Static array containing the source data for the visualization.
+         */
+        const SOLAR_DATASET = [
+            // July Data (Winter)
+            { month: 'Jul', hour: 8, shading: 0.12, cloudy: 0.18, solar: 0.05 },
+            { month: 'Jul', hour: 10, shading: 0.15, cloudy: 0.25, solar: 0.22 },
+            { month: 'Jul', hour: 12, shading: 0.16, cloudy: 0.35, solar: 0.45 },
+            { month: 'Jul', hour: 14, shading: 0.15, cloudy: 0.25, solar: 0.22 },
+            { month: 'Jul', hour: 16, shading: 0.12, cloudy: 0.18, solar: 0.05 },
+            
+            // September Data (Spring)
+            { month: 'Sep', hour: 8, shading: 0.10, cloudy: 0.15, solar: 0.15 },
+            { month: 'Sep', hour: 10, shading: 0.12, cloudy: 0.20, solar: 0.45 },
+            { month: 'Sep', hour: 12, shading: 0.14, cloudy: 0.28, solar: 0.68 },
+            { month: 'Sep', hour: 14, shading: 0.12, cloudy: 0.20, solar: 0.45 },
+            { month: 'Sep', hour: 16, shading: 0.10, cloudy: 0.15, solar: 0.15 },
+
+            // December Data (Summer)
+            { month: 'Dec', hour: 6, shading: 0.04, cloudy: 0.05, solar: 0.1 },
+            { month: 'Dec', hour: 8, shading: 0.08, cloudy: 0.12, solar: 0.35 },
+            { month: 'Dec', hour: 10, shading: 0.10, cloudy: 0.18, solar: 0.72 },
+            { month: 'Dec', hour: 12, shading: 0.12, cloudy: 0.25, solar: 0.95 },
+            { month: 'Dec', hour: 14, shading: 0.10, cloudy: 0.18, solar: 0.72 },
+            { month: 'Dec', hour: 16, shading: 0.08, cloudy: 0.12, solar: 0.35 },
+            { month: 'Dec', hour: 18, shading: 0.04, cloudy: 0.05, solar: 0.1 },
+        ];
+
+        const THEME = {
+            colors: {
+                shading: '#90ee90', 
+                cloudy: '#add8e6',   
+                solarMax: '#ff0000',
+                solarMin: '#ffffb4',
+                grid: 0xeeeeee,
+                axis: 0x000000,
+                text: '#000000'
+            },
+            labels: {
+                shading: 'Shading',
+                cloudy: 'Cloudy',
+                solar: 'Sunny (Intensity)'
+            },
+            scaling: {
+                unitsPerKwh: 12, // Scale factor to map values to logical 3D units
+                barWidth: 0.8,
+                gapX: 1.2,
+                gapZ: 3.5,
+                frustumSize: 30
+            }
+        };
+
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        /**
+         * Helper: Generates a color along a dynamic warm-tone gradient based on value intensity.
+         */
+        const getDynamicSolarColor = (value) => {
+            const t = Math.min(Math.max(value / 1.1, 0), 1);
+            const r = 255;
+            const g = Math.round(255 * (1 - t));
+            const b = Math.round(180 * (1 - t));
+            return `rgb(${r}, ${g}, ${b})`;
+        };
+
+        /**
+         * Component: SolarScene
+         * Renders the interactive 3D viewport containing the grids, labels, and stacked solar bars.
+         */
+        const SolarScene = ({ data, onHover }) => {
+            const mountRef = useRef(null);
+
+            // Dynamically calculate metadata from dataset
+            const meta = useMemo(() => {
+                const uniqueHours = [...new Set(data.map(d => d.hour))].sort((a, b) => a - b);
+                const uniqueMonths = [...new Set(data.map(d => d.month))];
+                return { hours: uniqueHours, months: uniqueMonths };
+            }, [data]);
+
+            useEffect(() => {
+                if (!mountRef.current) return;
+
+                // Grab initial sizes safely
+                let width = mountRef.current.clientWidth || window.innerWidth;
+                let height = mountRef.current.clientHeight || window.innerHeight;
+                
+                const scene = new THREE.Scene();
+                scene.background = new THREE.Color(0xffffff);
+
+                const { frustumSize, unitsPerKwh, barWidth, gapX, gapZ } = THEME.scaling;
+                const camera = new THREE.OrthographicCamera(
+                    frustumSize * (width / height) / -2, frustumSize * (width / height) / 2,
+                    frustumSize / 2, frustumSize / -2,
+                    0.1, 1000
+                );
+
+                const maxX = (meta.hours.length - 1) * (barWidth + gapX) + barWidth;
+                const maxZ = -(meta.months.length - 1) * (barWidth + gapZ) - barWidth;
+                const maxY = 1.2 * unitsPerKwh;
+
+                // Adjust camera position for an optimal isometric overview
+                camera.position.set(30, 30, 30);
+                camera.zoom = 1.12;
+                camera.lookAt(maxX / 2, maxY / 3.3, maxZ / 2);
+                camera.updateProjectionMatrix();
+
+                const renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(width, height);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                mountRef.current.appendChild(renderer.domElement);
+
+                // Safe initialization of OrbitControls
+                let controls;
+                const ControlsConstructor = THREE.OrbitControls || (window.THREE && window.THREE.OrbitControls);
+                if (ControlsConstructor) {
+                    controls = new ControlsConstructor(camera, renderer.domElement);
+                    controls.enableDamping = true;
+                    controls.target.set(maxX / 2, maxY / 3.3, maxZ / 2);
+                    controls.update();
+                }
+
+                /**
+                 * Helper: Creates crisp 2D text labels positioned in 3D space.
+                 */
+                const createLabel = (text, x, y, z, size = 1.25, rotation = [0, 0, 0], bold = false) => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 512; canvas.height = 128;
+                    ctx.fillStyle = THEME.colors.text;
+                    ctx.font = `${bold ? '900' : '700'} 80px Inter, sans-serif`;
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(text, 256, 64);
+                    
+                    const texture = new THREE.CanvasTexture(canvas);
+                    const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide, depthWrite: false });
+                    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(size * 4, size), material);
+                    mesh.position.set(x, y, z);
+                    mesh.rotation.set(...rotation);
+                    scene.add(mesh);
+                };
+
+                const drawLine = (start, end, color = THEME.colors.grid) => {
+                    const geo = new THREE.BufferGeometry().setFromPoints([start, end]);
+                    scene.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color })));
+                };
+
+                // Grid & Label Generation
+                meta.hours.forEach((h, i) => {
+                    const x = i * (barWidth + gapX);
+                    drawLine(new THREE.Vector3(x, 0, 0), new THREE.Vector3(x, 0, maxZ));
+                    createLabel(h.toString().padStart(2, '0') + ":00", x + barWidth / 2, -0.6, 1.2, 1.25, [-Math.PI / 2, 0, -Math.PI / 4]);
+                });
+
+                // Y-Axis Marks
+                for (let val = 0; val <= 1.21; val += 0.2) {
+                    const y = val * unitsPerKwh;
+                    drawLine(new THREE.Vector3(0, y, 0), new THREE.Vector3(0, y, maxZ));
+                    drawLine(new THREE.Vector3(-0.4, y, 0), new THREE.Vector3(0, y, 0), THEME.colors.axis);
+                    createLabel(val.toFixed(1), -1.8, y, 0, 1.25, [0, Math.PI / 4, 0]);
+                }
+
+                meta.months.forEach((m, i) => {
+                    const z = -i * (barWidth + gapZ);
+                    drawLine(new THREE.Vector3(0, 0, z), new THREE.Vector3(maxX, 0, z));
+                    drawLine(new THREE.Vector3(0, 0, z), new THREE.Vector3(0, maxY, z));
+                    createLabel(m, maxX + 2.0, -0.2, z - barWidth / 2, 1.25, [-Math.PI / 2, 0, 0]);
+                });
+
+                createLabel("Time of Day", maxX / 2, -1.41, 3.5, 1.25, [-Math.PI / 2, 0, 0], true);
+                createLabel("kWh/m²", -3.2, maxY / 2, 0, 1.25, [0, Math.PI / 4, Math.PI / 2], true);
+
+                // Stacked Bar Plotting
+                const barGroup = new THREE.Group();
+                scene.add(barGroup);
+
+                data.forEach(entry => {
+                    const xIdx = meta.hours.indexOf(entry.hour);
+                    const zIdx = meta.months.indexOf(entry.month);
+                    const posX = xIdx * (barWidth + gapX);
+                    const posZ = -zIdx * (barWidth + gapZ);
+                    
+                    let currentY = 0;
+                    ['shading', 'cloudy', 'solar'].forEach(key => {
+                        const val = entry[key];
+                        if (val <= 0) return;
+                        const h = val * unitsPerKwh;
+                        const geo = new THREE.BoxGeometry(barWidth, h, barWidth);
+                        const color = key === 'solar' ? getDynamicSolarColor(entry.solar) : THEME.colors[key];
+                        const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.85 });
+                        const mesh = new THREE.Mesh(geo, mat);
+                        mesh.position.set(posX + barWidth / 2, currentY + h / 2, posZ - barWidth / 2);
+                        mesh.userData = entry;
+                        barGroup.add(mesh);
+                        currentY += h;
+                    });
+                });
+
+                // Raycaster Mouse Hover Setup
+                const raycaster = new THREE.Raycaster();
+                const mouse = new THREE.Vector2();
+                const handleInteraction = (e) => {
+                    const rect = renderer.domElement.getBoundingClientRect();
+                    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                    raycaster.setFromCamera(mouse, camera);
+                    const hits = raycaster.intersectObjects(barGroup.children);
+                    onHover(hits.length > 0 ? hits[0].object.userData : null);
+                };
+                renderer.domElement.addEventListener('mousemove', handleInteraction);
+
+                // Render loop
+                const animate = () => {
+                    const animId = requestAnimationFrame(animate);
+                    if (controls) controls.update();
+                    renderer.render(scene, camera);
+                    return animId;
+                };
+                const animId = animate();
+
+                // Dynamic resize callback
+                const handleResize = () => {
+                    if (!mountRef.current) return;
+                    const w = mountRef.current.clientWidth;
+                    const h = mountRef.current.clientHeight;
+                    if (w === 0 || h === 0) return;
+                    const asp = w / h;
+                    camera.left = -frustumSize * asp / 2;
+                    camera.right = frustumSize * asp / 2;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(w, h);
+                };
+
+                // Use ResizeObserver to completely eliminate race conditions/0px canvas dimensions
+                const resizeObserver = new ResizeObserver(() => handleResize());
+                resizeObserver.observe(mountRef.current);
+                window.addEventListener('resize', handleResize);
+
+                return () => {
+                    cancelAnimationFrame(animId);
+                    resizeObserver.disconnect();
+                    window.removeEventListener('resize', handleResize);
+                    renderer.domElement.removeEventListener('mousemove', handleInteraction);
+                    if (mountRef.current && renderer.domElement) {
+                        mountRef.current.removeChild(renderer.domElement);
+                    }
+                };
+            }, [data, meta]);
+
+            return <div ref={mountRef} className="flex-grow w-full h-full relative" />;
+        };
+
+        const App = () => {
+            const [hovered, setHovered] = useState(null);
+
+            return (
+                <div className="relative w-full h-screen bg-white flex flex-col overflow-hidden pt-20 box-border">
+                    {/* Floating Title Box */}
+                    <div className="absolute top-4 right-6 z-10 pointer-events-none">
+                        <h1 className="text-sm font-black tracking-tight text-black bg-white/80 p-2 border-2 border-black">
+                            Solar Intensity - By Season and Hour
+                        </h1>
+                    </div>
+
+                    {/* Legend Box */}
+                    <div className="absolute top-16 right-6 z-10">
+                        <div className="bg-white/90 border border-black p-2 min-w-[140px] shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                            <h3 className="text-[9px] font-black mb-1 border-b border-black pb-1">Legend</h3>
+                            {Object.entries(THEME.labels).map(([key, label]) => (
+                                <div key={key} className="legend-item text-[8px] font-bold">
+                                    <div className="color-box" style={{
+                                        background: key === 'solar' 
+                                            ? `linear-gradient(to right, ${THEME.colors.solarMin}, ${THEME.colors.solarMax})` 
+                                            : THEME.colors[key]
+                                    }} />
+                                    <span>{label}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Brutalist Detail Tooltip */}
+                    {hovered && (
+                        <div className="absolute bottom-6 right-6 z-10 bg-white border-2 border-black p-3 min-w-[180px] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                            <div className="text-[9px] font-black text-gray-500 uppercase tracking-tighter">
+                                {hovered.month} @ {hovered.hour.toString().padStart(2, '0')}:00
+                            </div>
+                            <div className="text-xl font-black mb-1 border-b border-black pb-1">
+                                {hovered.solar.toFixed(2)} <span className="text-[10px]">kWh/m²</span>
+                            </div>
+                            <div className="space-y-0.5 text-[8px] font-bold uppercase tracking-tighter">
+                                <div className="flex justify-between"><span>{THEME.labels.shading}:</span><span>-{hovered.shading.toFixed(3)}</span></div>
+                                <div className="flex justify-between"><span>{THEME.labels.cloudy}:</span><span>-{hovered.cloudy.toFixed(3)}</span></div>
+                            </div>
+                        </div>
+                    )}
+
+                    <SolarScene data={SOLAR_DATASET} onHover={setHovered} />
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
