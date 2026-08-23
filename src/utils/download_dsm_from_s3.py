@@ -18,13 +18,22 @@ from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen, urlretrieve
 
 
+"""Utilities for downloading LINZ DSM tiles from an S3-backed STAC collection.
+
+The module reads KEY=VALUE config files, resolves matching STAC items, and
+downloads the requested GeoTIFF tiles into the configured local cache.
+"""
+
+
 def parse_bool(value: str | None, default: bool = False) -> bool:
+    """Convert a config string into a boolean value."""
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def parse_env_file(env_path: Path) -> dict[str, str]:
+    """Load a KEY=VALUE config file and return its contents as a dictionary."""
     config: dict[str, str] = {}
     with env_path.open("r", encoding="utf-8") as file:
         for raw_line in file:
@@ -50,17 +59,20 @@ def parse_env_file(env_path: Path) -> dict[str, str]:
 
 
 def parse_int(value: str | None, default: int) -> int:
+    """Parse an integer config value, falling back to a provided default."""
     if value is None or not value.strip():
         return default
     return int(value)
 
 
 def fetch_json(url: str, timeout_seconds: int) -> dict[str, Any]:
+    """Fetch and decode a JSON document from a URL."""
     with urlopen(url, timeout=timeout_seconds) as response:
         return json.load(response)
 
 
 def parse_bbox(value: str | None) -> tuple[float, float, float, float] | None:
+    """Parse a 4-value bounding box string into (minx, miny, maxx, maxy)."""
     if not value:
         return None
     parts = [p.strip() for p in value.split(",")]
@@ -73,6 +85,7 @@ def parse_bbox(value: str | None) -> tuple[float, float, float, float] | None:
 
 
 def parse_tile_ids_from_file(path_value: str | None) -> set[str]:
+    """Load a newline-delimited list of tile IDs from a text file."""
     if not path_value:
         return set()
     path = Path(path_value)
@@ -89,6 +102,7 @@ def parse_tile_ids_from_file(path_value: str | None) -> set[str]:
 
 
 def intersects(a: tuple[float, float, float, float], b: tuple[float, float, float, float]) -> bool:
+    """Return True when two bounding boxes overlap spatially."""
     return not (a[2] <= b[0] or a[0] >= b[2] or a[3] <= b[1] or a[1] >= b[3])
 
 
@@ -96,6 +110,7 @@ def intersection_area(
     a: tuple[float, float, float, float],
     b: tuple[float, float, float, float],
 ) -> float:
+    """Calculate the area overlap between two bounding boxes, in map units squared."""
     if not intersects(a, b):
         return 0.0
     x_overlap = min(a[2], b[2]) - max(a[0], b[0])
@@ -104,13 +119,213 @@ def intersection_area(
 
 
 def parse_tile_ids(value: str | None) -> set[str]:
+    """Parse a comma- or whitespace-delimited set of tile IDs."""
     if not value:
         return set()
     normalized = value.replace(",", " ")
     return {part.strip() for part in normalized.split() if part.strip()}
 
 
+def parse_tile_id(tile_id: str) -> tuple[str, str, int, int]:
+    """Parse a LINZ tile ID into (sheet_code, scale_str, row, col).
+
+    Example: ``"CC11_10000_0104"`` → ``("CC11", "10000", 1, 4)``
+    where row=1 (first two digits of the grid suffix) and col=4 (last two).
+    """
+    parts = tile_id.split("_")
+    if len(parts) != 3:
+        raise ValueError(f"Unexpected tile ID format: {tile_id!r} (expected SHEET_SCALE_GRID)")
+    sheet_code = parts[0]
+    scale_str = parts[1]
+    grid = parts[2]
+    if len(grid) != 4 or not grid.isdigit():
+        raise ValueError(f"Unexpected grid component in tile ID: {tile_id!r} (expected 4 digits)")
+    row = int(grid[:2])
+    col = int(grid[2:])
+    return sheet_code, scale_str, row, col
+
+
+def get_neighbor_tile_ids(tile_id: str) -> dict[str, str]:
+    """Return tile IDs for the W, NW, N, NE, and E neighbors of *tile_id*.
+
+    In the LINZ 1:10k grid, row numbers increase going South and column
+    numbers increase going East.  Only the five northern/lateral directions
+    are returned because tiles to the south cast no shadow in the Southern
+    Hemisphere.
+    """
+    sheet_code, scale_str, row, col = parse_tile_id(tile_id)
+
+    def make_id(r: int, c: int) -> str:
+        return f"{sheet_code}_{scale_str}_{r:02d}{c:02d}"
+
+    return {
+        "W":  make_id(row,     col - 1),
+        "NW": make_id(row - 1, col - 1),
+        "N":  make_id(row - 1, col),
+        "NE": make_id(row - 1, col + 1),
+        "E":  make_id(row,     col + 1),
+    }
+
+
+def fetch_collection_all_items(config: dict[str, str]) -> dict[str, Any]:
+    """Fetch every item in a STAC collection, keyed by tile ID.
+
+    Unlike ``select_items`` this function does not apply any bbox/tile-ID
+    filter – it returns the complete inventory so the collection-tile loop can
+    look up arbitrary neighbor tiles by name.  Expected-size HEAD requests are
+    deferred until a tile is actually about to be downloaded.
+    """
+    collection_url = config["S3_STAC_COLLECTION_URL"]
+    timeout_seconds = parse_int(config.get("REQUEST_TIMEOUT_SECONDS"), default=30)
+    asset_key = config.get("DOWNLOAD_ASSET_KEY")
+    if not asset_key:
+        raise ValueError("Missing required config key: DOWNLOAD_ASSET_KEY")
+
+    collection = fetch_json(collection_url, timeout_seconds=timeout_seconds)
+    item_links = [
+        urljoin(collection_url, link["href"])
+        for link in collection.get("links", [])
+        if link.get("rel") == "item" and isinstance(link.get("href"), str)
+    ]
+    if not item_links:
+        raise ValueError("No STAC item links found in collection")
+
+    all_items: dict[str, Any] = {}
+    for item_url in item_links:
+        item = fetch_json(item_url, timeout_seconds=timeout_seconds)
+        item_id = item.get("id")
+        if not isinstance(item_id, str):
+            continue
+
+        item_bbox_raw = item.get("bbox")
+        if not (
+            isinstance(item_bbox_raw, list)
+            and len(item_bbox_raw) >= 4
+            and all(isinstance(v, (int, float)) for v in item_bbox_raw[:4])
+        ):
+            continue
+        item_bbox = (
+            float(item_bbox_raw[0]),
+            float(item_bbox_raw[1]),
+            float(item_bbox_raw[2]),
+            float(item_bbox_raw[3]),
+        )
+
+        try:
+            asset = resolve_item_asset(item, asset_key=asset_key)
+        except ValueError:
+            continue
+
+        asset_href = urljoin(item_url, str(asset["href"]))
+        checksum = parse_checksum(asset.get("file:checksum"))
+        expected_size = asset.get("file:size")
+        if isinstance(expected_size, str) and expected_size.isdigit():
+            expected_size = int(expected_size)
+        if not isinstance(expected_size, int):
+            expected_size = None  # resolved lazily before download
+
+        all_items[item_id] = {
+            "id": item_id,
+            "bbox": item_bbox,
+            "asset_href": asset_href,
+            "expected_size": expected_size,
+            "checksum": checksum,
+        }
+
+    return all_items
+
+
+def ensure_tile_downloaded(
+    tile_id: str,
+    all_items: dict[str, Any],
+    config: dict[str, str],
+    print_fn=print,
+) -> "Path | None":
+    """Ensure *tile_id* is present in the local DSM cache, downloading if needed.
+
+    Returns the local ``Path`` of the file, or ``None`` if the tile is absent
+    from the collection or all download attempts fail.
+    """
+    if tile_id not in all_items:
+        return None
+
+    output_dir = Path(config.get("OUTPUT_DSM_DIR", "data/inputs/DSM"))
+    save_as_tif = parse_bool(config.get("SAVE_AS_TIF"), default=True)
+    overwrite = parse_bool(config.get("OVERWRITE"), default=False)
+    max_retries = parse_int(config.get("MAX_DOWNLOAD_RETRIES"), default=2)
+    timeout_seconds = parse_int(config.get("REQUEST_TIMEOUT_SECONDS"), default=30)
+    manifest_path = Path(
+        config.get("DOWNLOAD_MANIFEST_PATH", str(output_dir / "download_manifest.jsonl"))
+    )
+
+    item = all_items[tile_id]
+    asset_href = item["asset_href"]
+    expected_size = item.get("expected_size")
+    checksum = item.get("checksum")
+
+    out_name = output_name_for_download(asset_href, save_as_tif=save_as_tif)
+    out_path = output_dir / out_name
+
+    if out_path.exists() and not overwrite:
+        is_valid, _ = verify_local_file(
+            out_path,
+            expected_size=expected_size if isinstance(expected_size, int) else None,
+            checksum=checksum if isinstance(checksum, tuple) else None,
+        )
+        if is_valid:
+            return out_path
+
+    # Resolve file size via HEAD request if not already known
+    if expected_size is None:
+        expected_size = get_remote_content_length(asset_href, timeout_seconds=timeout_seconds)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    for attempt in range(1, max_retries + 2):
+        try:
+            print_fn(f"Downloading {tile_id} (attempt {attempt}): {asset_href}")
+            urlretrieve(asset_href, str(out_path))
+            is_valid, reason = verify_local_file(
+                out_path,
+                expected_size=expected_size if isinstance(expected_size, int) else None,
+                checksum=checksum if isinstance(checksum, tuple) else None,
+            )
+            if is_valid:
+                append_manifest_record(
+                    manifest_path,
+                    {
+                        "timestamp_utc": datetime.now(UTC).isoformat(),
+                        "tile_id": tile_id,
+                        "asset_href": asset_href,
+                        "output_path": str(out_path),
+                        "status": "downloaded",
+                        "expected_size": expected_size,
+                    },
+                )
+                return out_path
+            print_fn(f"Verification failed for {tile_id}: {reason}")
+            if out_path.exists():
+                out_path.unlink()
+        except Exception as exc:
+            print_fn(f"Download error for {tile_id} attempt {attempt}: {exc}")
+            if out_path.exists():
+                out_path.unlink()
+
+    append_manifest_record(
+        manifest_path,
+        {
+            "timestamp_utc": datetime.now(UTC).isoformat(),
+            "tile_id": tile_id,
+            "asset_href": asset_href,
+            "output_path": str(out_path),
+            "status": "failed",
+        },
+    )
+    return None
+
+
 def resolve_item_asset(item: dict[str, Any], asset_key: str) -> dict[str, Any]:
+    """Return the named STAC asset, raising if it is missing or not a GeoTIFF."""
     assets = item.get("assets", {})
     asset = assets.get(asset_key)
     if not isinstance(asset, dict):
@@ -126,6 +341,7 @@ def resolve_item_asset(item: dict[str, Any], asset_key: str) -> dict[str, Any]:
 
 
 def parse_checksum(value: str | None) -> tuple[str, str] | None:
+    """Parse a STAC checksum string into a (algorithm, digest) tuple."""
     if not value:
         return None
     normalized = value.strip().lower()
@@ -140,6 +356,7 @@ def parse_checksum(value: str | None) -> tuple[str, str] | None:
 
 
 def compute_digest(file_path: Path, algorithm: str) -> str:
+    """Return the hex digest for a file using the requested hash algorithm."""
     hasher = hashlib.new(algorithm)
     with file_path.open("rb") as file:
         while True:
@@ -151,6 +368,7 @@ def compute_digest(file_path: Path, algorithm: str) -> str:
 
 
 def get_remote_content_length(url: str, timeout_seconds: int) -> int | None:
+    """Query the remote object size via HEAD, if the server exposes Content-Length."""
     try:
         request = Request(url, method="HEAD")
         with urlopen(request, timeout=timeout_seconds) as response:
@@ -167,6 +385,7 @@ def verify_local_file(
     expected_size: int | None,
     checksum: tuple[str, str] | None,
 ) -> tuple[bool, str]:
+    """Validate a downloaded file against the expected size and checksum."""
     if not file_path.exists():
         return (False, "missing")
 
@@ -184,12 +403,14 @@ def verify_local_file(
 
 
 def append_manifest_record(manifest_path: Path, record: dict[str, Any]) -> None:
+    """Append a JSON record to the download manifest for auditability."""
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     with manifest_path.open("a", encoding="utf-8") as file:
         file.write(json.dumps(record, ensure_ascii=True) + "\n")
 
 
 def select_items(config: dict[str, str]) -> list[dict[str, Any]]:
+    """Return STAC items matching the configured bbox, tile list, or whole-collection mode."""
     collection_url = config["S3_STAC_COLLECTION_URL"]
     timeout_seconds = parse_int(config.get("REQUEST_TIMEOUT_SECONDS"), default=30)
     asset_key = config.get("DOWNLOAD_ASSET_KEY")
@@ -276,6 +497,7 @@ def select_items(config: dict[str, str]) -> list[dict[str, Any]]:
 
 
 def output_name_for_download(asset_href: str, save_as_tif: bool) -> str:
+    """Choose the local filename used for a downloaded DSM asset."""
     source_name = Path(urlparse(asset_href).path).name
     if save_as_tif and source_name.lower().endswith(".tiff"):
         return source_name[:-5] + ".tif"
@@ -283,6 +505,7 @@ def output_name_for_download(asset_href: str, save_as_tif: bool) -> str:
 
 
 def download_items(items: list[dict[str, Any]], config: dict[str, str]) -> None:
+    """Download each selected item to the local DSM cache and log the result."""
     output_area_name = config.get("OUTPUT_AREA_NAME", "suburb_ShotoverCountry")
     output_dir = Path(
         config.get("OUTPUT_DSM_DIR", f"data/inputs/DSM/{output_area_name}_s3")
@@ -438,6 +661,7 @@ def download_items(items: list[dict[str, Any]], config: dict[str, str]) -> None:
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the DSM download utility."""
     parser = argparse.ArgumentParser(
         description="Download LINZ 1m DSM tiles from S3 using STAC collection filters"
     )
@@ -450,6 +674,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Entry point for the standalone S3 DSM downloader."""
     args = parse_args()
     config_path = Path(args.config)
     if not config_path.exists():

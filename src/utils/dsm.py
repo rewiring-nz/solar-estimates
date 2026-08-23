@@ -196,16 +196,31 @@ def calculate_horizon_raster(
     Returns:
         The base name of the output horizon raster (same as ``output_name``).
     """
-    grass_module(
-        "r.horizon",
-        elevation=elevation,
-        step=step_degrees,
-        bufferzone=buffer_distance,
-        output=output_name,
-        start=start_azimuth,
-        end=end_azimuth,
-        overwrite=True,
-    ).run()
+    def _run_horizon(start: float, end: float) -> None:
+        grass_module(
+            "r.horizon",
+            elevation=elevation,
+            step=step_degrees,
+            bufferzone=buffer_distance,
+            output=output_name,
+            start=start,
+            end=end,
+            overwrite=True,
+        ).run()
+
+    if start_azimuth < end_azimuth:
+        # Simple case: contiguous arc that does not wrap through north (0°/360°).
+        _run_horizon(start_azimuth, end_azimuth)
+    else:
+        # Wrap-around case (e.g. 315°→135° covering the northern arc).
+        # r.horizon requires start < end, so split into two calls:
+        #   1) start_azimuth → 360°  (e.g. 315→360)
+        #   2) 0°            → end_azimuth  (e.g. 0→135)
+        # Both calls use the same output prefix so _list_rasters_with_prefix
+        # collects all the generated direction rasters in combine_horizon_rasters.
+        _run_horizon(start_azimuth, 360.0)
+        if end_azimuth > 0.0:
+            _run_horizon(0.0, end_azimuth)
 
     return output_name
 

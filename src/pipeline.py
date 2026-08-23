@@ -18,7 +18,15 @@ from utils.building_outlines import (
     load_building_outlines,
     remove_masks,
 )
-from utils.download_dsm_from_s3 import download_items, parse_bool, parse_env_file, select_items
+from utils.download_dsm_from_s3 import (
+    download_items,
+    ensure_tile_downloaded,
+    fetch_collection_all_items,
+    get_neighbor_tile_ids,
+    parse_bool,
+    parse_env_file,
+    select_items,
+)
 from utils.dsm import (
     calculate_horizon_raster,
     calculate_slope_aspect_rasters,
@@ -153,8 +161,8 @@ def parse_args():
 
     parser.add_argument(
         "--dsm-glob",
-        default=get_config_value(config, "INPUT_DSM_GLOB", required=True),
-        help="Glob for DSM GeoTIFF files to use as inputs (required after config merge)",
+        default=get_config_value(config, "INPUT_DSM_GLOB"),
+        help="Glob for DSM GeoTIFF files to use as inputs (required unless --process-collection-tiles is true)",
     )
 
     parser.add_argument(
@@ -321,6 +329,17 @@ def parse_args():
         help="When per-tile mode is enabled, skip tiles with completed outputs already present",
     )
 
+    parser.add_argument(
+        "--process-collection-tiles",
+        type=parse_cli_bool,
+        default=parse_bool(config.get("PROCESS_COLLECTION_TILES"), default=False),
+        metavar="true|false",
+        help=(
+            "Fetch all tiles from S3_STAC_COLLECTION_URL, download each tile and its "
+            "W/NW/N/NE/E neighbors on demand, and run per-tile solar calculation"
+        ),
+    )
+
     args = parser.parse_args(remaining_argv)
     args.defaults_config = config_args.defaults_config
     args.config = config_args.config
@@ -382,6 +401,7 @@ def log_runtime_configuration(logger, args) -> None:
         "download_dsm": args.download_dsm,
         "process_per_input_tile": args.process_per_input_tile,
         "skip_completed_tiles": args.skip_completed_tiles,
+        "process_collection_tiles": args.process_collection_tiles,
     }
 
     logger.info("Runtime defaults config source: %s", resolved_values["defaults_config"])
@@ -397,6 +417,176 @@ def get_completion_artifact(output_dir: Path, area_name: str, export_rasters: bo
     if export_rasters:
         return output_dir / f"{area_name}_solar_irradiance_on_buildings.tif"
     return output_dir / f"{area_name}_building_stats.gpkg"
+
+
+def get_tile_nztm_bounds(tile_path: Path) -> tuple[float, float, float, float]:
+    """Return (north, south, east, west) of a GeoTIFF in its native projected CRS."""
+    from osgeo import gdal as _gdal
+    ds = _gdal.Open(str(tile_path))
+    if ds is None:
+        raise ValueError(f"Cannot open raster to read bounds: {tile_path}")
+    gt = ds.GetGeoTransform()
+    width = ds.RasterXSize
+    height = ds.RasterYSize
+    west = gt[0]
+    north = gt[3]
+    east = west + width * gt[1]
+    south = north + height * gt[5]  # gt[5] is negative for north-up rasters
+    ds = None
+    return (north, south, east, west)
+
+
+def build_collection_tile_command(
+    args,
+    context_vrt: str,
+    tile_area_name: str,
+    tile_output_prefix: str,
+    region_bbox: str,
+) -> list[str]:
+    cmd = [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "--defaults-config", args.defaults_config,
+        "--config", args.config,
+        "--dsm-glob", context_vrt,
+        "--building-dir", args.building_dir,
+        "--area-name", tile_area_name,
+        "--building-layer-name", args.building_layer_name,
+        "--output-prefix", tile_output_prefix,
+        "--max-slope", str(args.max_slope),
+        "--time-step", str(args.time_step),
+        "--n-procs", str(args.n_procs),
+        "--dsm-buffer-distance", str(args.dsm_buffer_distance),
+        "--dem-buffer-distance", str(args.dem_buffer_distance),
+        "--horizon-step-degrees", str(args.horizon_step_degrees),
+        "--horizon-start-azimuth", str(args.horizon_start_azimuth),
+        "--horizon-end-azimuth", str(args.horizon_end_azimuth),
+        "--source-crs", args.source_crs,
+        "--target-crs", args.target_crs,
+        "--region-bbox", region_bbox,
+        "--download-dsm", "false",
+        "--process-per-input-tile", "false",
+        "--process-collection-tiles", "false",
+        "--skip-completed-tiles", "false",
+    ]
+
+    if args.grass_base:
+        cmd.extend(["--grass-base", args.grass_base])
+    if args.dem_glob:
+        cmd.extend(["--dem-glob", args.dem_glob])
+    if args.wrf_file:
+        cmd.extend(["--wrf-file", args.wrf_file])
+    if args.export_rasters:
+        cmd.append("--export-rasters")
+    if args.calculate_horizon:
+        cmd.append("--calculate-horizon")
+    if args.key_days:
+        cmd.append("--key-days")
+        cmd.extend(str(day) for day in args.key_days)
+
+    return cmd
+
+
+def run_collection_tile_mode(args, config: dict, logger) -> None:
+    """Iterate over every tile in the STAC collection, download on demand, and run solar calc."""
+    logger.info("Collection-tile mode: fetching full STAC collection from %s", config.get("S3_STAC_COLLECTION_URL"))
+    all_items = fetch_collection_all_items(config)
+    logger.info("Collection contains %d tiles", len(all_items))
+
+    # Sort North→South, West→East using the WGS84 STAC bbox (miny=southernmost lat)
+    sorted_items = sorted(all_items.values(), key=lambda x: (-x["bbox"][3], x["bbox"][0]))
+    total = len(sorted_items)
+
+    output_dsm_dir = Path(config.get("OUTPUT_DSM_DIR", f"data/inputs/DSM/{args.area_name}_s3"))
+    output_dsm_dir.mkdir(parents=True, exist_ok=True)
+
+    processed = 0
+    skipped = 0
+    failed = 0
+
+    for index, item in enumerate(sorted_items, start=1):
+        tile_id = item["id"]
+        tile_area_name = f"{args.area_name}_tile_{tile_id}"
+        tile_output_dir = Path(f"data/outputs/{tile_area_name}")
+        completion_artifact = get_completion_artifact(
+            output_dir=tile_output_dir,
+            area_name=tile_area_name,
+            export_rasters=args.export_rasters,
+        )
+
+        if args.skip_completed_tiles and completion_artifact.exists():
+            skipped += 1
+            logger.info("[%d/%d] Skipping completed tile %s", index, total, tile_id)
+            continue
+
+        logger.info("[%d/%d] Processing tile %s", index, total, tile_id)
+
+        # Ensure the target tile itself is cached locally
+        target_path = ensure_tile_downloaded(
+            tile_id, all_items, config, print_fn=lambda msg: logger.info(msg)
+        )
+        if target_path is None:
+            logger.warning("[%d/%d] Cannot obtain target tile %s – skipping", index, total, tile_id)
+            failed += 1
+            continue
+
+        # Determine and download W/NW/N/NE/E context tiles
+        neighbor_ids = get_neighbor_tile_ids(tile_id)
+        context_paths = [str(target_path)]
+        for direction, neighbor_id in neighbor_ids.items():
+            if neighbor_id not in all_items:
+                logger.debug("Neighbor %s (%s) not in collection", neighbor_id, direction)
+                continue
+            neighbor_path = ensure_tile_downloaded(
+                neighbor_id, all_items, config, print_fn=lambda msg: logger.debug(msg)
+            )
+            if neighbor_path:
+                context_paths.append(str(neighbor_path))
+            else:
+                logger.warning("Could not obtain neighbor tile %s (%s)", neighbor_id, direction)
+
+        # Build a context VRT containing target + available neighbors
+        from osgeo import gdal as _gdal
+        context_vrt_path = output_dsm_dir / f"{tile_id}_context.vrt"
+        try:
+            vrt_options = _gdal.BuildVRTOptions(resampleAlg=_gdal.GRA_NearestNeighbour)
+            _gdal.BuildVRT(str(context_vrt_path), context_paths, options=vrt_options)
+        except Exception as exc:
+            logger.error("[%d/%d] Failed to build context VRT for %s: %s", index, total, tile_id, exc)
+            failed += 1
+            continue
+
+        # Derive REGION_BBOX from the target tile's projected (NZTM) extent
+        try:
+            tile_bounds = get_tile_nztm_bounds(target_path)
+            region_bbox_str = f"{tile_bounds[0]},{tile_bounds[1]},{tile_bounds[2]},{tile_bounds[3]}"
+        except Exception as exc:
+            logger.error("[%d/%d] Cannot read bounds for %s: %s", index, total, tile_id, exc)
+            failed += 1
+            continue
+
+        tile_output_prefix = f"{args.output_prefix}_{tile_id}"
+        command = build_collection_tile_command(
+            args=args,
+            context_vrt=str(context_vrt_path),
+            tile_area_name=tile_area_name,
+            tile_output_prefix=tile_output_prefix,
+            region_bbox=region_bbox_str,
+        )
+
+        try:
+            subprocess.run(command, check=True)
+            processed += 1
+        except subprocess.CalledProcessError as exc:
+            logger.error(
+                "[%d/%d] Tile %s failed (exit %d)", index, total, tile_id, exc.returncode
+            )
+            failed += 1
+
+    logger.info(
+        "Collection-tile mode finished: processed=%d skipped=%d failed=%d total=%d",
+        processed, skipped, failed, total,
+    )
 
 
 def build_single_tile_command(args, dsm_file: str, tile_area_name: str, tile_output_prefix: str) -> list[str]:
@@ -536,6 +726,14 @@ def main():
             logger.error("Building directory does not exist: %s", args.building_dir)
             sys.exit(1)
 
+    if args.process_collection_tiles:
+        try:
+            run_collection_tile_mode(args, config, logger)
+        except Exception as exc:
+            logger.error("Collection-tile processing failed: %s", exc)
+            sys.exit(1)
+        return
+
     if args.process_per_input_tile:
         try:
             run_per_input_tile_mode(args, logger)
@@ -543,6 +741,11 @@ def main():
             logger.error("Per-tile processing failed: %s", exc)
             sys.exit(1)
         return
+
+    # --dsm-glob is required for single-run and per-input-tile modes
+    if not args.dsm_glob:
+        logger.error("--dsm-glob / INPUT_DSM_GLOB is required when not using --process-collection-tiles")
+        sys.exit(1)
 
     # Auto-detect or validate GRASS base path
     grass_base = args.grass_base

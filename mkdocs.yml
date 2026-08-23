@@ -50,6 +50,7 @@ nav:
   - User Guide:
     - User Guide: user/index.md
     - Pipeline Quickstart: user/pipeline-quickstart.md
+    - Build from LINZ DSM via S3: user/build-from-linz-dsm-s3.md
     - Pipeline - Source Data : user/how-to-use-your-own-data.md
     - QGIS Quickstart: user/qgis-quickstart.md
   - Developer Guide:
