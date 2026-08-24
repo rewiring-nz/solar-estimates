@@ -20,7 +20,8 @@ For accurate solar modeling (including roof pitch and shading from chimneys or t
 * **Coordinate System:** Ensure your data is in **EPSG:2193** (NZGD2000 / New Zealand Transverse Mercator 2000).
 
 !!! tip
-    Digital *Surface* Models (DSM) include building rooftops and tree tops. Digital *Elevation* Models (DEM) are not suitable for our analysis as they represent bare ground elevation.
+    Digital *Surface* Models (DSM) include building rooftops and tree tops. We use DSMs for rooftop slope calculations, and local shading.
+    Digital *Elevation* Models (DEM) represent bare ground elevation. We use DEMs for distant (mountain) shading.
 
 ### 1.2 Building Outlines
 
@@ -71,17 +72,25 @@ solar-estimates/
 
 ## 3. Create a config file
 
-Since the pipeline has a lot of long input arguments, we have config environment files where you can organise these. See the `config/` folder for examples and create a new one that points to your newly organised custom data.
+Since the pipeline has a lot of long input arguments, we have config environment files where you can organise these. See the `configs/` folder for examples and create a new one that points to your newly organised custom data.
+
+The pipeline uses layered config files:
+- `configs/default.env` provides base defaults
+- `CONFIG_FILE=...` selects your area-specific overrides
+- explicit CLI flags override both
 
 The pipeline has many input arguments that you can try. See `src/README.md` for an explanation of each of the arguments.
 
 ## 4. Run the pipeline with your custom data
 
-To run the pipeline script with your own data by pointing the docker container towards a particular environment file, like this example:
+To run the pipeline with your own data, set the config file path in `CONFIG_FILE` and run the pipeline service:
 
 ```bash
-docker compose --env-file configs/suburb_ShotoverCountry.env up pipeline
+CONFIG_FILE=configs/suburb_ShotoverCountry.env
+docker compose run --rm pipeline
 ```
+
+At startup, the pipeline logs both config file sources and the resolved runtime parameters. Use that summary to confirm that values such as `KEY_DAYS`, `TIME_STEP`, and `DOWNLOAD_DSM` are coming from the files you expect.
 
 The output will appear in the `data/outputs/OUTPUT_AREA_NAME` directory as defined in your config file, like this:
 

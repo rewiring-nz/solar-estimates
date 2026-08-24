@@ -88,25 +88,22 @@ This repo includes some example data in the `data/` folder. You can use these to
 # See all available options
 python3 pipeline.py --help
 
-# Run the pipeline using all defaults
+# Run the pipeline using layered config files
 python3 pipeline.py
+
+# Run the pipeline with a specific scenario config
+python3 pipeline.py --config configs/suburb_ShotoverCountry.env
 
 # Run the pipeline specifying some arguments
 python3 pipeline.py \
-  --dsm-glob "data/shotover_country/*.tif" \
-  --building-dir "data/queenstown_lakes_building_outlines" \
-  --area-name "shotover_country" \
-  --building-layer-name "queenstown_lakes_buildings" \
+  --config configs/suburb_ShotoverCountry.env \
   --output-prefix "my_solar_analysis" \
   --time-step 0.5 \
   --export-rasters
 
 # Run the pipeline with WRF data
 python3 pipeline.py \
-  --dsm-glob "data/shotover_country/*.tif" \
-  --building-dir "data/queenstown_lakes_building_outlines" \
-  --area-name "shotover_country" \
-  --building-layer-name "queenstown_lakes_buildings" \
+  --config configs/suburb_ShotoverCountry.env \
   --output-prefix "my_solar_analysis" \
   --time-step 0.5 \
   --wrf-file "data/swdown_2016-2020_daily_mean_doy.nc" \
@@ -115,23 +112,32 @@ python3 pipeline.py \
   --export-rasters
 ```
 
+Configuration precedence:
+1. Command-line flags
+2. `--config` scenario file
+3. `configs/default.env`
+
+At startup, the pipeline logs the defaults config source, the scenario config source, and the resolved runtime parameters.
+
 ### Command-line arguments
 
 | Argument | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `--dsm-glob` | No | `data/shotover_country/*.tif` | Glob pattern for input DSM GeoTIFF files |
-| `--building-dir` | No | `data/queenstown_lakes_building_outlines` | Directory containing input building outline shapefiles |
-| `--area-name` | No | `shotover_country` | Descriptive name for the area (used in output filenames) |
-| `--building-layer-name` | No | `queenstown_lakes_buildings` | Name of the output building outline layer |
+| `--defaults-config` | No | `configs/default.env` | Base defaults config file |
+| `--config` | No | `configs/suburb_ShotoverCountry.env` | Scenario config file overriding `--defaults-config` |
+| `--dsm-glob` | Yes, after config merge | From merged config | Glob pattern for input DSM GeoTIFF files |
+| `--building-dir` | Yes, after config merge | From merged config | Directory containing input building outline shapefiles |
+| `--area-name` | Yes, after config merge | From merged config | Descriptive name for the area (used in output filenames) |
+| `--building-layer-name` | Yes, after config merge | From merged config | Name of the output building outline layer |
 | `--grass-base` | No | Auto-detected | Path to GRASS GIS installation |
-| `--output-prefix` | No | `solar_on_buildings` | Prefix for output files |
-| `--max-slope` | No | `45.0` | Maximum slope in degrees for filtering |
-| `--key-days` | No | `1 7` | Day numbers for solar irradiance interpolation |
-| `--time-step` | No | `1.0` | Time step in decimal hours for calculations |
-| `--export-rasters` | No | `False` | Export all rasters as GeoTIFFs |
+| `--output-prefix` | No | From merged config | Prefix for output files |
+| `--max-slope` | No | From merged config | Maximum slope in degrees for filtering |
+| `--key-days` | No | From merged config | Day numbers for solar irradiance interpolation |
+| `--time-step` | No | From merged config | Time step in decimal hours for calculations |
+| `--export-rasters` | No | From merged config | Export all rasters as GeoTIFFs |
 | `--wrf-file` | No | - | Path to WRF NetCDF file for measured radiation data |
-| `--source-crs` | No | `EPSG:4326` | Source CRS for WRF data |
-| `--target-crs` | No | `EPSG:2193` | Target CRS for WRF reprojection |
+| `--source-crs` | No | From merged config | Source CRS for WRF data |
+| `--target-crs` | No | From merged config | Target CRS for WRF reprojection |
 
 ### Note on GRASS GIS base paths by platform
 
