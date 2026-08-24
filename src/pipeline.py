@@ -340,6 +340,14 @@ def parse_args():
         ),
     )
 
+    parser.add_argument(
+        "--ignore-neighbor",
+        type=parse_cli_bool,
+        default=parse_bool(config.get("IGNORE_NEIGHBOR"), default=False),
+        metavar="true|false",
+        help="When true, process each tile without including adjacent neighbor tiles in the context VRT.",
+    )
+
     args = parser.parse_args(remaining_argv)
     args.defaults_config = config_args.defaults_config
     args.config = config_args.config
@@ -402,6 +410,7 @@ def log_runtime_configuration(logger, args) -> None:
         "process_per_input_tile": args.process_per_input_tile,
         "skip_completed_tiles": args.skip_completed_tiles,
         "process_collection_tiles": args.process_collection_tiles,
+        "ignore_neighbor": args.ignore_neighbor,
     }
 
     logger.info("Runtime defaults config source: %s", resolved_values["defaults_config"])
@@ -530,20 +539,23 @@ def run_collection_tile_mode(args, config: dict, logger) -> None:
             failed += 1
             continue
 
-        # Determine and download W/NW/N/NE/E context tiles
-        neighbor_ids = get_neighbor_tile_ids(tile_id)
         context_paths = [str(target_path)]
-        for direction, neighbor_id in neighbor_ids.items():
-            if neighbor_id not in all_items:
-                logger.debug("Neighbor %s (%s) not in collection", neighbor_id, direction)
-                continue
-            neighbor_path = ensure_tile_downloaded(
-                neighbor_id, all_items, config, print_fn=lambda msg: logger.debug(msg)
-            )
-            if neighbor_path:
-                context_paths.append(str(neighbor_path))
-            else:
-                logger.warning("Could not obtain neighbor tile %s (%s)", neighbor_id, direction)
+        if not args.ignore_neighbor:
+            # Determine and download W/NW/N/NE/E context tiles
+            neighbor_ids = get_neighbor_tile_ids(tile_id)
+            for direction, neighbor_id in neighbor_ids.items():
+                if neighbor_id not in all_items:
+                    logger.debug("Neighbor %s (%s) not in collection", neighbor_id, direction)
+                    continue
+                neighbor_path = ensure_tile_downloaded(
+                    neighbor_id, all_items, config, print_fn=lambda msg: logger.debug(msg)
+                )
+                if neighbor_path:
+                    context_paths.append(str(neighbor_path))
+                else:
+                    logger.warning("Could not obtain neighbor tile %s (%s)", neighbor_id, direction)
+        else:
+            logger.info("IGNORE_NEIGHBOR=true: processing %s without neighboring tiles", tile_id)
 
         # Build a context VRT containing target + available neighbors
         from osgeo import gdal as _gdal
